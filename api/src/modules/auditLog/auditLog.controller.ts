@@ -1,9 +1,8 @@
-import { AuditLogService } from "./auditLog.service";
-import type { FilterAuditLogDTO } from "@/types/auditLog.type";
-import type { PaginationQuery } from "@/types/pagination.type";
+import { AuditLogService, type ListAuditLogsParams } from "./auditLog.service";
+import type { UserRole } from "@/database/entities/User";
 
 export class AuditLogController {
-  static async getLogs(data: FilterAuditLogDTO & PaginationQuery & { from?: string; to?: string }) {
-    return await AuditLogService.list(data);
+  static async getLogs(data: ListAuditLogsParams, viewerRole: UserRole) {
+    return await AuditLogService.list(data, viewerRole);
   }
 }

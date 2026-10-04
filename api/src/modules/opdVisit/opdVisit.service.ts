@@ -209,7 +209,7 @@ export class OPDVisitService {
 
       const records = await repo.find({
         where: { id: In(ids), isDeleted: false },
-        relations: ["patient"],
+        relations: {patient: true},
       });
 
       if (records.length === 0) {

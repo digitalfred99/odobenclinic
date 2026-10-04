@@ -31,7 +31,7 @@ export class DashboardService {
         patientRepo.count({ where: { isDeleted: false } }),
         opdVisitRepo.find({
           where: { isDeleted: false },
-          relations: ["patient", "createdBy"],
+          relations: {patient: true, createdBy: true},
           order: { createdAt: "DESC" },
           take: RECENT_VISITS_LIMIT,
         }),

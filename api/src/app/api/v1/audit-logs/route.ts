@@ -7,19 +7,25 @@ import { UserRole } from "@/database/entities/User";
 
 // Admin-tier only — the audit trail itself is sensitive (who did what,
 // when, from which IP) and is not something a receptionist needs.
-const getHandler: AuthedHandler = async (req, _ctx) => {
+// Super admin activity is further restricted to super admins only
+// (enforced in AuditLogService.list based on the viewer's role).
+const getHandler: AuthedHandler = async (req) => {
   try {
     const params = req.nextUrl.searchParams;
-    const logs = await AuditLogController.getLogs({
-      actorUserId: params.get("actorUserId") ?? undefined,
-      action: params.get("action") ?? undefined,
-      entityType: params.get("entityType") ?? undefined,
-      entityId: params.get("entityId") ?? undefined,
-      from: params.get("from") ?? undefined,
-      to: params.get("to") ?? undefined,
-      page: params.get("page") ? Number(params.get("page")) : undefined,
-      limit: params.get("limit") ? Number(params.get("limit")) : undefined,
-    });
+    const logs = await AuditLogController.getLogs(
+      {
+        actorUserId: params.get("actorUserId") ?? undefined,
+        action: params.get("action") ?? undefined,
+        entityType: params.get("entityType") ?? undefined,
+        entityId: params.get("entityId") ?? undefined,
+        from: params.get("from") ?? undefined,
+        to: params.get("to") ?? undefined,
+        page: params.get("page") ? Number(params.get("page")) : undefined,
+        limit: params.get("limit") ? Number(params.get("limit")) : undefined,
+      },
+      // Role from the verified JWT payload set by withAuth, never from the request params.
+      req.user.role,
+    );
     return customResponse(SuccessCodes.RECORD_FETCHED.code, SuccessCodes.RECORD_FETCHED.message, 200, logs);
   } catch (error) {
     return handleError(error);

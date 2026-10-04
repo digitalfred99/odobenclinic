@@ -1,4 +1,4 @@
-import { validateCreatePatient, validatePatientEnum, validateUpdatedAgeAndDob } from "@/modules/patient/patient.validator";
+import { validateCreatePatient, validatePatientEnum, validateUpdatedAgeAndDob, validateGhCardNumber, validateNhisNumber } from "@/modules/patient/patient.validator";
 import { validate as isUUID } from "uuid";
 import { Brackets, In, EntityManager } from "typeorm";
 import { AppDataSource } from "@/database/data-source";
@@ -172,6 +172,13 @@ export class PatientService {
   static async create(data: CreatePatientDTO, actorUserId: string) {
     validateCreatePatient(data);
 
+    // Same normalization as update() applies — do it once here so every
+    // downstream use (lock key, dedupe check, and the actual insert
+    // below) sees the same normalized value instead of three different
+    // ad-hoc .trim()/.toUpperCase() calls scattered through this method.
+    if (data.ghCardNumber) data.ghCardNumber = data.ghCardNumber.trim().toUpperCase();
+    if (data.nhisNumber) data.nhisNumber = data.nhisNumber.trim();
+
     const db = await AppDataSource();
     const userRepo = db.getRepository(User);
 
@@ -188,6 +195,8 @@ export class PatientService {
         firstName: data.firstName,
         lastName: data.lastName,
         dateOfBirth: data.dateOfBirth ?? null,
+        ghCardNumber: data.ghCardNumber ?? null,
+        nhisNumber: data.nhisNumber ?? null,
       });
 
       const duplicate = await findPotentialDuplicate(manager, {
@@ -197,6 +206,8 @@ export class PatientService {
         dateOfBirth: data.dateOfBirth ?? null,
         age: data.age ?? null,
         phone: data.phone,
+        ghCardNumber: data.ghCardNumber ?? null,
+        nhisNumber: data.nhisNumber ?? null,
       });
 
       if (duplicate) {
@@ -231,6 +242,8 @@ export class PatientService {
         area: data.area,
         gender: data.gender,
         maritalStatus: data.maritalStatus,
+        ghCardNumber: data.ghCardNumber,
+        nhisNumber: data.nhisNumber,
         createdBy,
       });
 
@@ -261,6 +274,10 @@ export class PatientService {
     }
 
     validatePatientEnum(data);
+    validateGhCardNumber(data.ghCardNumber);
+    validateNhisNumber(data.nhisNumber);
+    if (data.ghCardNumber) data.ghCardNumber = data.ghCardNumber.trim().toUpperCase();
+    if (data.nhisNumber) data.nhisNumber = data.nhisNumber.trim();
 
     const db = await AppDataSource();
 
@@ -274,8 +291,12 @@ export class PatientService {
 
       // Only bother locking + checking when an identity-relevant field is
       // actually changing — no need to contend for a lock when someone's
-      // just updating an address or marital status.
-      const identityFields = ["firstName", "lastName", "gender", "dateOfBirth", "phone", "age"] as const;
+      // just updating an address or marital status. ghCardNumber/
+      // nhisNumber are included: correcting or adding a government ID to
+      // an existing record is exactly the kind of edit that should
+      // re-trigger the duplicate check (see findByGovernmentId) — it's
+      // the strongest identity signal there is.
+      const identityFields = ["firstName", "lastName", "gender", "dateOfBirth", "phone", "age", "ghCardNumber", "nhisNumber"] as const;
       const identityFieldsChanged = identityFields.some(
         (key) => key in data && (data as any)[key] !== (existingPatient as any)[key]
       );
@@ -296,6 +317,8 @@ export class PatientService {
           firstName: merged.firstName,
           lastName: merged.lastName,
           dateOfBirth: merged.dateOfBirth ?? null,
+          ghCardNumber: merged.ghCardNumber ?? null,
+          nhisNumber: merged.nhisNumber ?? null,
         });
 
         const duplicate = await findPotentialDuplicate(
@@ -307,6 +330,8 @@ export class PatientService {
             dateOfBirth: merged.dateOfBirth ?? null,
             age: merged.age ?? null,
             phone: merged.phone,
+            ghCardNumber: merged.ghCardNumber ?? null,
+            nhisNumber: merged.nhisNumber ?? null,
           },
           id
         );

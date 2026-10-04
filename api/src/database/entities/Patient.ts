@@ -25,6 +25,8 @@ export enum MaritalStatus {
 // number — see the comment on positionInYear below. patientId is just
 // the formatted display string derived from these two.
 @Index("UQ_patients_year_position", ["year", "positionInYear"], { unique: true })
+@Index("UQ_patients_gh_card_active", ["ghCardNumber"], { unique: true, where: '"isDeleted" = false AND "ghCardNumber" IS NOT NULL' })
+@Index("UQ_patients_nhis_active", ["nhisNumber"], { unique: true, where: '"isDeleted" = false AND "nhisNumber" IS NOT NULL' })
 export class Patient extends AppBaseEntity {
   // The clinic's one fixed, permanent number for this person — e.g.
   // "PT-12/2026" means they were the 12th patient ever registered at
@@ -86,6 +88,22 @@ export class Patient extends AppBaseEntity {
 
   @Column({ type: "enum", enum: MaritalStatus, nullable: false })
   maritalStatus!: MaritalStatus;
+
+  // Format: GHA-XXXXXXXXX-X (GHA- literal + 9 digits + - + 1 check
+  // digit). Validated against this exact shape and normalized to
+  // uppercase in patient.validator.ts before it ever reaches here.
+  // Unique only while active (see the conditional index above) — a real
+  // government ID belonging to one real person must never permanently
+  // block re-registering that person just because an earlier, unrelated
+  // row with the same card number was soft-deleted.
+  @Column({ type: "varchar", length: 50, nullable: true })
+  ghCardNumber?: string;
+
+  // Ghana NHIS numbers are exactly 8 digits, nothing else (e.g.
+  // "56738945") — validated in patient.validator.ts. Same "unique only
+  // while active" reasoning as ghCardNumber.
+  @Column({ type: "varchar", length: 20, nullable: true })
+  nhisNumber?: string;
 
   // Who registered this patient, permanently — distinct from
   // OPDVisit.createdBy, which records who logged each individual

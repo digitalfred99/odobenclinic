@@ -4,7 +4,7 @@ import type { Gender, MaritalStatus } from "@/database/entities/Patient";
 export type CreatePatientDTO = {
     firstName: string;
     lastName: string;
-    phone: string;
+    phone?: string;
     dateOfBirth?: string;
     age?: number;
     region?: string;
@@ -12,7 +12,9 @@ export type CreatePatientDTO = {
     town?: string;
     area?: string;
     gender: Gender;
-    maritalStatus: MaritalStatus
+    maritalStatus: MaritalStatus;
+    ghCardNumber?: string;
+    nhisNumber?: string;
 };
 
 // ── Update ───────────────────────────────────────────────────────
@@ -27,7 +29,9 @@ export type UpdatePatientDTO = Partial<{
     town: string;
     area: string;
     gender: Gender;
-    maritalStatus: MaritalStatus
+    maritalStatus: MaritalStatus;
+    ghCardNumber: string;
+    nhisNumber: string;
 }>;
 
 // ── Filter (list/search) ────────────────────────────────────────

@@ -9,6 +9,10 @@ function fail(message: string): never {
 
 const DATE_OF_BIRTH_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_REASONABLE_AGE = 130;
+const GH_CARD_REGEX = /^GHA-\d{9}-\d$/;
+// Ghana NHIS membership numbers are exactly 8 digits, nothing else
+// (e.g. "56738945") — no letters, no separators.
+const NHIS_REGEX = /^\d{8}$/;
 
 /**
  * Backend guardrails around dateOfBirth/age. Deliberately NOT trying to
@@ -83,6 +87,27 @@ function validateAgeAndDob(data: Pick<CreatePatientDTO, "dateOfBirth" | "age">) 
   }
 }
 
+/**
+ * Optional on both create and update. Does nothing when undefined (field
+ * not being set/changed) — the "is this patient allowed to have no
+ * Ghana Card on file at all" question is a business decision, not a
+ * format question, and this function only enforces the format.
+ */
+export function validateGhCardNumber(ghCardNumber: string | undefined) {
+  if (ghCardNumber === undefined) return;
+  if (!GH_CARD_REGEX.test(ghCardNumber.trim().toUpperCase())) {
+    fail("ghCardNumber must be a valid Ghana Card number in the format GHA-XXXXXXXXX-X");
+  }
+}
+
+/** Optional; when present must be exactly 8 digits. */
+export function validateNhisNumber(nhisNumber: string | undefined) {
+  if (nhisNumber === undefined) return;
+  if (!NHIS_REGEX.test(nhisNumber.trim())) {
+    fail("nhisNumber must be exactly 8 digits");
+  }
+}
+
 export function validateCreatePatient(data: CreatePatientDTO) {
   if (!data.firstName?.trim()) fail("firstName is required");
   if (!data.lastName?.trim()) fail("lastName is required");
@@ -98,6 +123,8 @@ export function validateCreatePatient(data: CreatePatientDTO) {
 
   validatePatientEnum(data);
   validateAgeAndDob(data);
+  validateGhCardNumber(data.ghCardNumber);
+  validateNhisNumber(data.nhisNumber);
 }
 
 export function validatePatientEnum(data: any): asserts data is CreatePatientDTO {
