@@ -73,10 +73,20 @@ export class ReportService {
 
     const rows: PatientRegistrationReportRow[] = patients.map((p) => ({
       patientId: p.patientId,
+      firstName: p.firstName,
+      lastName: p.lastName,
       name: `${p.firstName} ${p.lastName}`,
+      dateOfBirth: p.dateOfBirth ?? null,
       age: displayAge(p),
+      phone: p.phone ?? null,
+      region: p.region ?? null,
+      district: p.district ?? null,
+      town: p.town ?? null,
       gender: p.gender,
+      maritalStatus: p.maritalStatus,
       area: p.area ?? null,
+      ghCardNumber: p.ghCardNumber ?? null,
+      nhisNumber: p.nhisNumber ?? null,
       dateRegistered: p.createdAt.toISOString(),
     }));
 

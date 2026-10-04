@@ -69,6 +69,8 @@ export class PatientService {
               // A receptionist searching by the number printed on the
               // patient's clinic card should hit this too.
               .orWhere(`patient.patientId ILIKE :${parameter}`, { [parameter]: pattern })
+              .orWhere(`patient.ghCardNumber ILIKE :${parameter}`, { [parameter]: pattern })
+              .orWhere(`patient.nhisNumber ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.region ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.district ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.town ILIKE :${parameter}`, { [parameter]: pattern })

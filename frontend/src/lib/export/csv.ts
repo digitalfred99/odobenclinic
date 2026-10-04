@@ -1,4 +1,4 @@
-type CsvValue = string | number | null | undefined;
+type CsvValue = string | number | boolean | null | undefined;
 
 function serializeCell(value: CsvValue): string {
   const text = value == null ? "" : String(value);

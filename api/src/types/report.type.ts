@@ -21,10 +21,20 @@ export type PatientRegistrationReportRow = {
   // fixed number as the patient's own ID (see Patient.patientId) — kept
   // as one field, not duplicated under two names.
   patientId: string;
+  firstName: string;
+  lastName: string;
   name: string;
+  dateOfBirth: string | null;
   age: number | null;
+  phone: string | null;
+  region: string | null;
+  district: string | null;
+  town: string | null;
   gender: Gender;
+  maritalStatus: MaritalStatus;
   area: string | null;
+  ghCardNumber: string | null;
+  nhisNumber: string | null;
   dateRegistered: string;
 };
 

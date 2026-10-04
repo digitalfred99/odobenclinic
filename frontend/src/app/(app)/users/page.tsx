@@ -209,8 +209,8 @@ export default function UsersPage() {
               <Input type="email" value={formState.email} onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Password</label>
-              <Input type="password" value={formState.password} onChange={(event) => setFormState((current) => ({ ...current, password: event.target.value }))} />
+              <label htmlFor="user-password" className="text-sm font-medium text-foreground">Password</label>
+              <Input id="user-password" type="password" autoComplete="new-password" value={formState.password} onChange={(event) => setFormState((current) => ({ ...current, password: event.target.value }))} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Role</label>
