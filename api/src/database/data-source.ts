@@ -49,42 +49,38 @@ export const AppDataSource = async () => {
 };
 
 
-// //Production
-// declare global {
-//   // eslint-disable-next-line no-var
-//   var __appDataSource: DataSource | undefined;
-//   // eslint-disable-next-line no-var
-//   var __appDataSourceInitPromise: Promise<DataSource> | undefined;
-// }
-
-// function buildDataSource() {
-//   return new DataSource({
-//     type: "postgres",
-//     url: process.env.DATABASE_URL,
-//     ssl: { rejectUnauthorized: false },
-//     synchronize: false,
-//     logging: process.env.NODE_ENV === "development",
-//     entities: [
-//      AuditLog,
-//      User,
-//      Patient,
-//      OPDVisit,
-//     ],
-//   });
-// }
-
-// export const AppDataSource = async () => {
-//   if (globalThis.__appDataSource?.isInitialized) {
-//     return globalThis.__appDataSource;
-//   }
-
-//   // Prevent concurrent callers from each starting their own initialize()
-//   if (!globalThis.__appDataSourceInitPromise) {
-//     const ds = globalThis.__appDataSource ?? buildDataSource();
-//     globalThis.__appDataSource = ds;
-//     globalThis.__appDataSourceInitPromise = ds.initialize();
-//   }
-
-//   await globalThis.__appDataSourceInitPromise;
-//   return globalThis.__appDataSource!;
-// };
+ //Production
+ declare global {
+   // eslint-disable-next-line no-var
+   var __appDataSource: DataSource | undefined;
+   // eslint-disable-next-line no-var
+   var __appDataSourceInitPromise: Promise<DataSource> | undefined;
+ 
+ function buildDataSource() {
+   return new DataSource({
+     type: "postgres",
+     url: process.env.DATABASE_URL,
+     ssl: { rejectUnauthorized: false },
+     synchronize: false,
+     logging: process.env.NODE_ENV === "development",
+     entities: [
+      AuditLog,
+      User,
+      Patient,
+      OPDVisit,
+     ],
+   });
+ 
+ export const AppDataSource = async () => {
+   if (globalThis.__appDataSource?.isInitialized) {
+     return globalThis.__appDataSource;
+   
+   // Prevent concurrent callers from each starting their own initialize()
+   if (!globalThis.__appDataSourceInitPromise) {
+     const ds = globalThis.__appDataSource ?? buildDataSource();
+     globalThis.__appDataSource = ds;
+     globalThis.__appDataSourceInitPromise = ds.initialize();
+   
+   await globalThis.__appDataSourceInitPromise;
+   return globalThis.__appDataSource!;
+ }
