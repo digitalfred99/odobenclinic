@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import dynamic from "next/dynamic";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Controller, useForm, useWatch, type FieldErrors, type Resolver } from "react-hook-form";
+import { Camera, ImagePlus, RefreshCw, X } from "lucide-react";
 import type { ZodIssue } from "zod";
 import { patientFormSchema, type PatientFormValues } from "@/schemas/patient";
 import { Button } from "@/components/ui/button";
@@ -10,6 +13,21 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { GhCardNumberInput, NhisNumberInput } from "@/components/ui/patient-identifier-inputs";
 import { calculateAge } from "@/lib/dates";
 import { sanitizePhoneNumber } from "@/lib/phone";
+import { preparePatientPhoto, validatePatientPhoto } from "@/lib/patient-photo";
+
+const PatientPhotoCamera = dynamic(() => import("./patient-photo-camera"), { ssr: false });
+
+function subscribeToCameraAvailability() {
+  return () => {};
+}
+
+function getCameraAvailabilitySnapshot() {
+  return Boolean(window.isSecureContext && navigator.mediaDevices?.getUserMedia);
+}
+
+function getServerCameraAvailabilitySnapshot() {
+  return true;
+}
 
 const EMPTY_FORM: PatientFormValues = {
   firstName: "",
@@ -32,12 +50,31 @@ export function PatientForm({
   onSubmit,
   submitLabel = "Save patient",
   clearOnSuccess = false,
+  enablePhoto = false,
+  photoError,
+  onPhotoChange,
 }: {
   initialValues?: Partial<PatientFormValues>;
-  onSubmit: (values: PatientFormValues) => Promise<boolean | void> | boolean | void;
+  onSubmit: (values: PatientFormValues, photo: File | null) => Promise<boolean | void> | boolean | void;
   submitLabel?: string;
   clearOnSuccess?: boolean;
+  enablePhoto?: boolean;
+  photoError?: string | null;
+  onPhotoChange?: () => void;
 }) {
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [localPhotoError, setLocalPhotoError] = useState<string | null>(null);
+  const [isPreparingPhoto, setIsPreparingPhoto] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const cameraAvailable = useSyncExternalStore(
+    subscribeToCameraAvailability,
+    getCameraAvailabilitySnapshot,
+    getServerCameraAvailabilitySnapshot
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadRequestRef = useRef(0);
+
   const form = useForm<PatientFormValues>({
     defaultValues: {
       ...EMPTY_FORM,
@@ -75,6 +112,12 @@ export function PatientForm({
   const dateOfBirth = useWatch({ control: form.control, name: "dateOfBirth" });
   const ageValue = useWatch({ control: form.control, name: "age" });
 
+  useEffect(() => () => {
+    if (photoPreviewUrl) {
+      URL.revokeObjectURL(photoPreviewUrl);
+    }
+  }, [photoPreviewUrl]);
+
   useEffect(() => {
     if (!dateOfBirth) {
       return;
@@ -85,6 +128,63 @@ export function PatientForm({
       form.setValue("age", String(age), { shouldDirty: true });
     }
   }, [dateOfBirth, form]);
+
+  const selectPhoto = useCallback((nextPhoto: File | null) => {
+    setPhoto(nextPhoto);
+    setPhotoPreviewUrl(nextPhoto ? URL.createObjectURL(nextPhoto) : null);
+    setLocalPhotoError(null);
+    setIsPreparingPhoto(false);
+    onPhotoChange?.();
+  }, [onPhotoChange]);
+
+  const openFilePicker = useCallback(() => fileInputRef.current?.click(), []);
+  const closeCamera = useCallback(() => setCameraOpen(false), []);
+  const useCapturedPhoto = useCallback((capturedPhoto: File) => {
+    uploadRequestRef.current += 1;
+    selectPhoto(capturedPhoto);
+    setCameraOpen(false);
+  }, [selectPhoto]);
+  const removePhoto = useCallback(() => {
+    uploadRequestRef.current += 1;
+    selectPhoto(null);
+  }, [selectPhoto]);
+
+  const handleUpload = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    setLocalPhotoError(null);
+    onPhotoChange?.();
+    const validationError = validatePatientPhoto(file);
+    if (validationError) {
+      setLocalPhotoError(validationError);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    const requestId = ++uploadRequestRef.current;
+    setIsPreparingPhoto(true);
+    try {
+      const preparedPhoto = await preparePatientPhoto(file);
+      if (requestId === uploadRequestRef.current) {
+        selectPhoto(preparedPhoto);
+      }
+    } catch (error) {
+      if (requestId === uploadRequestRef.current) {
+        setLocalPhotoError(error instanceof Error ? error.message : "Unable to process this photo.");
+      }
+    } finally {
+      if (requestId === uploadRequestRef.current) {
+        setIsPreparingPhoto(false);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   const submit = async (values: PatientFormValues) => {
     const succeeded = await onSubmit({
@@ -100,10 +200,11 @@ export function PatientForm({
       district: values.district === "" ? undefined : values.district,
       town: values.town === "" ? undefined : values.town,
       area: values.area === "" ? undefined : values.area,
-    });
+    }, photo);
 
     if (clearOnSuccess && succeeded !== false) {
       form.reset(EMPTY_FORM);
+      selectPhoto(null);
     }
   };
 
@@ -227,11 +328,79 @@ export function PatientForm({
         </div>
       </div>
 
+      {enablePhoto ? (
+        <section className="space-y-3 rounded-xl border border-border p-4" aria-labelledby="patient-photo-heading">
+          <div>
+            <h3 id="patient-photo-heading" className="text-sm font-semibold text-foreground">Patient photo <span className="font-normal text-muted-foreground">(optional)</span></h3>
+            <p className="mt-1 text-sm text-muted-foreground">Take a photo or upload a JPEG, PNG, or WebP image (up to 5 MB).</p>
+          </div>
+          {photo ? (
+            <div className="flex flex-wrap items-center gap-4">
+              {photoPreviewUrl ? (
+                <Image src={photoPreviewUrl} alt="Selected patient photo" width={224} height={168} unoptimized className="aspect-[4/3] w-28 rounded-lg border border-border object-cover" />
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" className="min-h-11" disabled={!cameraAvailable} onClick={() => setCameraOpen(true)}>
+                  <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />Retake
+                </Button>
+                <Button type="button" variant="outline" className="min-h-11" onClick={removePhoto}>
+                  <X className="mr-2 h-4 w-4" aria-hidden="true" />Remove
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="min-h-11"
+                disabled={!cameraAvailable}
+                onClick={() => setCameraOpen(true)}
+              >
+                <Camera className="mr-2 h-4 w-4" aria-hidden="true" />Take photo
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                disabled={isPreparingPhoto}
+                onClick={openFilePicker}
+              >
+                <ImagePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                {isPreparingPhoto ? "Preparing photo…" : "Upload photo"}
+              </Button>
+              <input
+                ref={fileInputRef}
+                id="patient-photo-upload"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.heic,.heif"
+                className="sr-only"
+                aria-label="Upload patient photo"
+                onChange={(event) => { void handleUpload(event.currentTarget.files?.[0]); }}
+              />
+            </div>
+          )}
+          {!cameraAvailable ? (
+            <p className="text-sm text-muted-foreground">Camera needs a secure (HTTPS) connection. You can upload a photo instead.</p>
+          ) : null}
+          {isPreparingPhoto ? <p className="text-sm text-muted-foreground" role="status">Preparing photo…</p> : null}
+          {localPhotoError || photoError ? (
+            <p className="text-sm text-destructive" role="alert">{localPhotoError ?? photoError}</p>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="flex justify-end">
-        <Button type="submit" disabled={form.formState.isSubmitting}>
+        <Button type="submit" disabled={form.formState.isSubmitting || isPreparingPhoto}>
           {form.formState.isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>
+      {cameraOpen ? (
+        <PatientPhotoCamera
+          onClose={closeCamera}
+          onUsePhoto={useCapturedPhoto}
+        />
+      ) : null}
     </form>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 import { PatientForm } from "@/components/features/patients/patient-form";
 import { PatientSearchList } from "@/components/features/patients/patient-search";
 import { Button } from "@/components/ui/button";
@@ -15,16 +15,32 @@ export default function PatientsPage() {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [patientListVersion, setPatientListVersion] = useState(0);
 
-  const handleSubmit = async (values: PatientFormValues) => {
+  const handleSubmit = async (values: PatientFormValues, photo: File | null) => {
     setNotice(null);
     setError(null);
+    setPhotoError(null);
 
     try {
+      let body: BodyInit;
+      if (photo) {
+        const formData = new FormData();
+        Object.entries(values).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            formData.append(key, String(value));
+          }
+        });
+        formData.append("image", photo);
+        body = formData;
+      } else {
+        body = JSON.stringify(values);
+      }
+
       const patient = await apiRequest<Patient>("/patients", {
         method: "POST",
-        body: JSON.stringify(values),
+        body,
       });
 
       queryClient.setQueryData<PatientListResponse>(["patients", ""], (current) => prependPatientToList(current, patient));
@@ -33,10 +49,25 @@ export default function PatientsPage() {
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to create patient.";
+      if (err instanceof ApiError && err.status === 413) {
+        setPhotoError("Photo is too large, please retake.");
+        return false;
+      }
+      if (
+        err instanceof ApiError &&
+        err.status === 400 &&
+        photo &&
+        (err.key?.toLowerCase() === "image" || /image|photo/i.test(message))
+      ) {
+        setPhotoError(message);
+        return false;
+      }
       setError(message);
       return false;
     }
   };
+
+  const handlePhotoChange = () => setPhotoError(null);
 
   return (
     <div className="space-y-8">
@@ -53,7 +84,14 @@ export default function PatientsPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <PatientSearchList key={patientListVersion} />
-        <PatientForm onSubmit={handleSubmit} submitLabel="Create patient" clearOnSuccess />
+        <PatientForm
+          onSubmit={handleSubmit}
+          submitLabel="Create patient"
+          clearOnSuccess
+          enablePhoto
+          photoError={photoError}
+          onPhotoChange={handlePhotoChange}
+        />
       </div>
     </div>
   );

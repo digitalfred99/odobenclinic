@@ -54,13 +54,13 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">{label}</p>
-                <p className="mt-3 text-3xl font-semibold text-foreground">
+                <div className="mt-3 text-3xl font-semibold text-foreground">
                   {isLoading ? (
                     <span role="status" aria-label={`Loading ${label.toLowerCase()}`} aria-busy="true">
                       <Skeleton className="h-9 w-20" />
                     </span>
                   ) : Number(stats[key] ?? 0)}
-                </p>
+                </div>
               </div>
               <div className={cn("rounded-xl p-3", accent)}>
                 <Icon className="h-5 w-5" />

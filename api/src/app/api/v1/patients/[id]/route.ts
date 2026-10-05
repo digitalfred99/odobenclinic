@@ -6,6 +6,7 @@ import { withAuth, AuthedHandler } from "@/middleware/withAuth";
 import { CustomAppError } from "@/lib/errors/customAppError";
 import { ErrorCodes } from "@/lib/errors/errorCodes";
 import { UserRole } from "@/database/entities/User";
+import { parseUpdatePatientRequest } from "@/modules/patient/patient.request";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -29,13 +30,14 @@ const getHandler: AuthedHandler = async (req, ctx) => {
   }
 };
 
+
 const patchHandler: AuthedHandler = async (req, ctx) => {
   try {
     if (!ctx?.params) throw new CustomAppError("Missing route parameters", 400, ErrorCodes.ID_REQUIRED.code, ErrorCodes.ID_REQUIRED.label, "bad_request");
 
-    const data = await req.json();
     const { id } = await (ctx.params as unknown as RouteContext["params"]);
-    const patient = await PatientController.updatePatient(id, data, req.user.sub);
+    const { data, image } = await parseUpdatePatientRequest(req);
+    const patient = await PatientController.updatePatient(id, data, req.user.sub, image);
     return customResponse(SuccessCodes.RECORD_UPDATED.code, SuccessCodes.RECORD_UPDATED.message, 200, patient);
   } catch (error) {
     return handleError(error);
