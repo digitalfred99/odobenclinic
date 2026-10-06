@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
@@ -30,6 +31,7 @@ export default function OPDVisitsPage() {
   const [remarks, setRemarks] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const debouncedSearchTerm = useDebouncedValue(searchTerm);
 
   useEffect(() => {
     const patientId = new URLSearchParams(window.location.search).get("patientId");
@@ -39,17 +41,17 @@ export default function OPDVisitsPage() {
   }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["opd-patients", searchTerm],
-    queryFn: async () => {
-      const queryString = searchTerm.trim() ? `?search=${encodeURIComponent(searchTerm.trim())}&limit=8` : "?limit=8";
-      return apiRequest<PatientsLookupResponse>(`/patients${queryString}`);
+    queryKey: ["opd-patients", debouncedSearchTerm],
+    queryFn: async ({ signal }) => {
+      const queryString = debouncedSearchTerm.trim() ? `?search=${encodeURIComponent(debouncedSearchTerm.trim())}&limit=8` : "?limit=8";
+      return apiRequest<PatientsLookupResponse>(`/patients${queryString}`, { signal });
     },
-    enabled: searchTerm.trim().length >= 0,
+    enabled: Boolean(debouncedSearchTerm.trim()),
   });
 
   const { data: selectedPatientData, isLoading: isSelectedPatientLoading, isError: isSelectedPatientError } = useQuery({
     queryKey: ["opd-selected-patient", selectedPatientId],
-    queryFn: async () => apiRequest<Patient>(`/patients/${encodeURIComponent(selectedPatientId)}`),
+    queryFn: ({ signal }) => apiRequest<Patient>(`/patients/${encodeURIComponent(selectedPatientId)}`, { signal }),
     enabled: Boolean(selectedPatientId),
   });
 
@@ -128,6 +130,11 @@ export default function OPDVisitsPage() {
           </div>
 
           <div className="space-y-3">
+            {!searchTerm.trim() ? (
+              <p className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+                Start typing a patient name, ID, phone, or area to search.
+              </p>
+            ) : null}
             {isLoading ? (
               <div className="space-y-3" role="status" aria-label="Loading patient matches" aria-busy="true">
                 {[0, 1, 2].map((item) => (

@@ -27,7 +27,7 @@ export default function DashboardPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard-overview"],
-    queryFn: async () => apiRequest<DashboardSummary>("/dashboard"),
+    queryFn: ({ signal }) => apiRequest<DashboardSummary>("/dashboard", { signal }),
   });
 
   const stats = data ?? {

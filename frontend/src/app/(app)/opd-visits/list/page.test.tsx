@@ -45,7 +45,8 @@ describe("OPD visit list filters", () => {
 
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(
-        expect.stringMatching(/^\/opd-visits\?search=PT-12%2F2026&dateFrom=\d{4}-\d{2}-\d{2}&dateTo=\d{4}-\d{2}-\d{2}&page=1&limit=20$/)
+        expect.stringMatching(/^\/opd-visits\?search=PT-12%2F2026&dateFrom=\d{4}-\d{2}-\d{2}&dateTo=\d{4}-\d{2}-\d{2}&page=1&limit=20$/),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
     expect(screen.getByRole("button", { name: "Filters (1)" })).toBeInTheDocument();

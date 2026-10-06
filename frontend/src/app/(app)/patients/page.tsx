@@ -16,7 +16,6 @@ export default function PatientsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const [patientListVersion, setPatientListVersion] = useState(0);
 
   const handleSubmit = async (values: PatientFormValues, photo: File | null) => {
     setNotice(null);
@@ -44,7 +43,7 @@ export default function PatientsPage() {
       });
 
       queryClient.setQueryData<PatientListResponse>(["patients", ""], (current) => prependPatientToList(current, patient));
-      setPatientListVersion((version) => version + 1);
+      void queryClient.invalidateQueries({ queryKey: ["patients"] });
       setNotice(patient.patientId ? `Patient registered successfully: ${patient.patientId}` : "Patient registered successfully.");
       return true;
     } catch (err) {
@@ -83,7 +82,7 @@ export default function PatientsPage() {
       {error ? <FeedbackMessage message={error} kind="error" onDismiss={() => setError(null)} /> : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-        <PatientSearchList key={patientListVersion} />
+        <PatientSearchList />
         <PatientForm
           onSubmit={handleSubmit}
           submitLabel="Create patient"

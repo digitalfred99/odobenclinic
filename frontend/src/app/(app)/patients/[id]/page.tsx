@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
+import Image from "next/image";
 import {
   ArrowLeft,
   Building2,
@@ -25,6 +26,7 @@ import { PatientForm } from "@/components/features/patients/patient-form";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { apiRequest } from "@/lib/api";
+import { resolvePatientPhotoUrl } from "@/lib/patient-photo";
 import type { PatientFormValues } from "@/schemas/patient";
 import type { Patient } from "@/types/patient";
 
@@ -52,7 +54,7 @@ export default function PatientDetailPage() {
   const patientId = params?.id ?? "";
   const { data: patient, isLoading, error, refetch } = useQuery({
     queryKey: ["patient", patientId],
-    queryFn: async () => apiRequest<Patient>(`/patients/${encodeURIComponent(patientId)}`),
+    queryFn: ({ signal }) => apiRequest<Patient>(`/patients/${encodeURIComponent(patientId)}`, { signal }),
     enabled: Boolean(patientId),
   });
 
@@ -185,6 +187,16 @@ export default function PatientDetailPage() {
                   Patient ID / OPD No. {displayValue(patient.patientId)}
                 </p>
               </div>
+              {patient.imageUrl ? (
+                <Image
+                  src={resolvePatientPhotoUrl(patient.imageUrl)}
+                  alt={`Patient photo of ${patient.firstName} ${patient.lastName}`}
+                  width={96}
+                  height={96}
+                  unoptimized
+                  className="h-24 w-24 rounded-xl border border-border object-cover"
+                />
+              ) : null}
             </div>
 
             <div className="space-y-6 pt-5">

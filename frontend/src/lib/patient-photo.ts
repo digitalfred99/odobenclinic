@@ -4,6 +4,11 @@ const RESIZE_THRESHOLD = 1.5 * 1024 * 1024;
 const MAX_PHOTO_SIDE = 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+export function resolvePatientPhotoUrl(imageUrl: string): string {
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api/v1";
+  return new URL(imageUrl, new URL(apiBaseUrl).origin).toString();
+}
+
 export function validatePatientPhoto(file: File): string | null {
   if (/\.(heic|heif)$/i.test(file.name) || /image\/hei[cf]/i.test(file.type)) {
     return "This photo format isn't supported. Please take a photo with the camera or use a JPEG/PNG.";

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Filter, Search } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export default function AuditLogsPage() {
   const [to, setTo] = useState("");
   const [actorId, setActorId] = useState("");
   const [page, setPage] = useState(1);
+  const debouncedActorId = useDebouncedValue(actorId);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -43,15 +45,15 @@ export default function AuditLogsPage() {
     if (entityType) params.set("entityType", entityType);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-    if (actorId) params.set("actorUserId", actorId);
+    if (debouncedActorId) params.set("actorUserId", debouncedActorId);
     params.set("page", String(page));
     params.set("limit", "20");
     return params;
-  }, [action, actorId, entityType, from, page, to]);
+  }, [action, debouncedActorId, entityType, from, page, to]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["audit-logs", queryParams.toString()],
-    queryFn: async () => apiRequest<AuditLogsResponse>(`/audit-logs?${queryParams.toString()}`),
+    queryFn: ({ signal }) => apiRequest<AuditLogsResponse>(`/audit-logs?${queryParams.toString()}`, { signal }),
   });
 
   const logs = data?.logs ?? [];

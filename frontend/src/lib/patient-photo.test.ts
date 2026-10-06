@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PATIENT_PHOTO_SIZE, validatePatientPhoto } from "@/lib/patient-photo";
+import { MAX_PATIENT_PHOTO_SIZE, resolvePatientPhotoUrl, validatePatientPhoto } from "@/lib/patient-photo";
+
+describe("resolvePatientPhotoUrl", () => {
+  it("resolves relative upload paths against the API origin", () => {
+    const resolved = new URL(resolvePatientPhotoUrl("/uploads/patients/ama.jpg"));
+
+    expect(resolved.pathname).toBe("/uploads/patients/ama.jpg");
+    expect(resolved.port).toBe("3000");
+  });
+
+  it("preserves absolute photo URLs", () => {
+    expect(resolvePatientPhotoUrl("https://images.example.com/ama.jpg")).toBe(
+      "https://images.example.com/ama.jpg"
+    );
+  });
+});
 
 describe("validatePatientPhoto", () => {
   it.each(["image/jpeg", "image/png", "image/webp"])("accepts %s", (type) => {

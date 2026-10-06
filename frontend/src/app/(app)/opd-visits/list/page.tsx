@@ -5,6 +5,7 @@ import { format, isValid, parseISO } from "date-fns";
 import { Filter, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,12 +29,13 @@ export default function OPDVisitListPage() {
   const [appliedRange, setAppliedRange] = useState<VisitDateRange>({ dateFrom: "", dateTo: "" });
   const [page, setPage] = useState(1);
   const [filterError, setFilterError] = useState<string | null>(null);
-  const query = buildOPDVisitQuery(searchTerm, appliedRange, page, PAGE_SIZE);
+  const debouncedSearchTerm = useDebouncedValue(searchTerm);
+  const query = buildOPDVisitQuery(debouncedSearchTerm, appliedRange, page, PAGE_SIZE);
   const hasDateFilter = Boolean(appliedRange.dateFrom || appliedRange.dateTo);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["opd-visits", query],
-    queryFn: () => apiRequest<OPDVisitListResponse>(`/opd-visits?${query}`),
+    queryFn: ({ signal }) => apiRequest<OPDVisitListResponse>(`/opd-visits?${query}`, { signal }),
   });
 
   const visits = data?.opdVisits ?? [];

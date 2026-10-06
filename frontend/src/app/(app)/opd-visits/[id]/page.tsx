@@ -26,7 +26,7 @@ export default function OPDVisitDetailPage() {
   const visitId = params?.id ?? "";
   const { data: visit, isLoading, isError, refetch } = useQuery({
     queryKey: ["opd-visit", visitId],
-    queryFn: () => apiRequest<OPDVisit>(`/opd-visits/${encodeURIComponent(visitId)}`),
+    queryFn: ({ signal }) => apiRequest<OPDVisit>(`/opd-visits/${encodeURIComponent(visitId)}`, { signal }),
     enabled: Boolean(visitId),
   });
 

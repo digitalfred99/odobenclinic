@@ -73,4 +73,18 @@ describe("PatientDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Register OPD visit" }));
     expect(push).toHaveBeenCalledWith("/opd-visits?patientId=patient-uuid");
   });
+
+  it("displays the patient photo when one is available", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      id: "patient-uuid",
+      firstName: "Ama",
+      lastName: "Mensah",
+      imageUrl: "/uploads/patients/ama.jpg",
+    });
+
+    renderPatientDetail();
+
+    const photo = await screen.findByRole("img", { name: "Patient photo of Ama Mensah" });
+    expect(photo).toHaveAttribute("src", expect.stringContaining("/uploads/patients/ama.jpg"));
+  });
 });
