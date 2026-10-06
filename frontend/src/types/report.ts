@@ -1,10 +1,20 @@
 export type ReportRow = {
   patientId: string;
+  firstName?: string;
+  lastName?: string;
   name: string;
+  dateOfBirth?: string | null;
   age: number | null;
+  phone?: string | null;
+  region?: string | null;
+  district?: string | null;
+  town?: string | null;
   gender: "male" | "female";
+  maritalStatus?: "single" | "married" | "divorced" | "widowed";
   area: string | null;
-  date: string;
+  ghCardNumber?: string | null;
+  nhisNumber?: string | null;
+  date?: string;
   newReturning?: "new" | "returning";
   dateRegistered?: string;
 };

@@ -5,6 +5,7 @@ import { Activity, ArrowRight, FileText, Users, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { DashboardSummary } from "@/types/dashboard";
 
 type DashboardStatKey = Exclude<keyof DashboardSummary, "recentOPDVisits">;
@@ -54,7 +55,11 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm text-muted-foreground">{label}</p>
                 <p className="mt-3 text-3xl font-semibold text-foreground">
-                  {isLoading ? "—" : Number(stats[key] ?? 0)}
+                  {isLoading ? (
+                    <span role="status" aria-label={`Loading ${label.toLowerCase()}`} aria-busy="true">
+                      <Skeleton className="h-9 w-20" />
+                    </span>
+                  ) : Number(stats[key] ?? 0)}
                 </p>
               </div>
               <div className={cn("rounded-xl p-3", accent)}>
@@ -77,9 +82,15 @@ export default function DashboardPage() {
           ) : null}
 
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-3" role="status" aria-label="Loading recent OPD visits" aria-busy="true">
               {[1, 2, 3].map((item) => (
-                <div key={item} className="h-16 animate-pulse rounded-xl bg-muted" />
+                <div key={item} className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background p-4">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-4 w-48 max-w-full" />
+                  </div>
+                  <Skeleton className="h-7 w-20 rounded-full" />
+                </div>
               ))}
             </div>
           ) : stats.recentOPDVisits.length === 0 ? (

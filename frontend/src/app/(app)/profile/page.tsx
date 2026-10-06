@@ -91,8 +91,8 @@ export default function ProfilePage() {
             <Input type="email" value={formState.email} onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))} />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-foreground">New password</label>
-            <Input type="password" value={formState.password} onChange={(event) => setFormState((current) => ({ ...current, password: event.target.value }))} placeholder="Leave blank to keep the current password" />
+            <label htmlFor="profile-new-password" className="text-sm font-medium text-foreground">New password</label>
+            <Input id="profile-new-password" type="password" autoComplete="new-password" value={formState.password} onChange={(event) => setFormState((current) => ({ ...current, password: event.target.value }))} placeholder="Leave blank to keep the current password" />
           </div>
 
           <div className="md:col-span-2 flex justify-end">

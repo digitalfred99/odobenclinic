@@ -1,8 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { format, isValid, parseISO } from "date-fns";
+import {
+  ArrowLeft,
+  Building2,
+  Cake,
+  CalendarDays,
+  CalendarPlus,
+  CreditCard,
+  IdCard,
+  MapPin,
+  Phone,
+  Pencil,
+  ShieldCheck,
+  UserCheck,
+  UserRound,
+  UsersRound,
+  type LucideIcon,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { PatientForm } from "@/components/features/patients/patient-form";
 import { Button } from "@/components/ui/button";
@@ -10,6 +27,21 @@ import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { apiRequest } from "@/lib/api";
 import type { PatientFormValues } from "@/schemas/patient";
 import type { Patient } from "@/types/patient";
+
+function PatientDetailLabel({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      {children}
+    </dt>
+  );
+}
+
+function formatTimestamp(value?: string) {
+  if (!value) return null;
+  const date = parseISO(value);
+  return isValid(date) ? format(date, "d MMM yyyy, h:mm a") : value;
+}
 
 export default function PatientDetailPage() {
   const params = useParams<{ id: string }>();
@@ -25,7 +57,6 @@ export default function PatientDetailPage() {
   });
 
   const displayValue = (value?: string | number | null) => value ?? "Not provided";
-  const labelClassName = "text-xs font-semibold uppercase text-primary";
   const valueClassName = "mt-1.5 text-sm font-medium text-foreground";
 
   const handleSave = async (values: PatientFormValues) => {
@@ -83,8 +114,29 @@ export default function PatientDetailPage() {
         ) : null}
       </div>
 
-      {isLoading ? <p className="text-sm text-muted-foreground">Loading patient record...</p> : null}
-      {error ? <p role="alert" className="text-sm text-destructive">Unable to load this patient record.</p> : null}
+      {isLoading ? (
+        <section className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm" aria-label="Loading patient details" aria-busy="true">
+          <div className="h-6 w-48 animate-pulse rounded bg-muted" />
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="space-y-2">
+                <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                <div className="h-5 w-36 animate-pulse rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {error ? (
+        <section className="rounded-2xl border border-destructive/40 bg-card p-6 shadow-sm" role="alert">
+          <h3 className="font-semibold text-foreground">Unable to load this patient</h3>
+          <p className="mt-1 text-sm text-muted-foreground">The patient record may have been removed, or there may be a connection problem.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => void refetch()}>Try again</Button>
+            <Button type="button" variant="secondary" onClick={() => router.push("/patients")}>Back to patient list</Button>
+          </div>
+        </section>
+      ) : null}
       {saveNotice ? <FeedbackMessage message={saveNotice} kind="success" onDismiss={() => setSaveNotice(null)} /> : null}
       {saveError ? <FeedbackMessage message={saveError} kind="error" onDismiss={() => setSaveError(null)} /> : null}
 
@@ -119,25 +171,60 @@ export default function PatientDetailPage() {
       ) : null}
 
       {patient && !isEditing ? (
-        <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <dl className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            <div><dt className={labelClassName}>Patient ID</dt><dd className={valueClassName}>{displayValue(patient.patientId)}</dd></div>
-            <div><dt className={labelClassName}>Date of birth</dt><dd className={valueClassName}>{displayValue(patient.dateOfBirth)}</dd></div>
-            <div><dt className={labelClassName}>Age</dt><dd className={valueClassName}>{displayValue(patient.age)}</dd></div>
-            <div><dt className={labelClassName}>Phone</dt><dd className={valueClassName}>{displayValue(patient.phone)}</dd></div>
-            {patient.ghCardNumber ? <div><dt className={labelClassName}>Ghana Card number</dt><dd className={valueClassName}>{patient.ghCardNumber}</dd></div> : null}
-            {patient.nhisNumber ? <div><dt className={labelClassName}>NHIS number</dt><dd className={valueClassName}>{patient.nhisNumber}</dd></div> : null}
-            <div><dt className={labelClassName}>Gender</dt><dd className={`${valueClassName} capitalize`}>{displayValue(patient.gender)}</dd></div>
-            <div><dt className={labelClassName}>Marital status</dt><dd className={`${valueClassName} capitalize`}>{displayValue(patient.maritalStatus)}</dd></div>
-            <div><dt className={labelClassName}>Region</dt><dd className={valueClassName}>{displayValue(patient.region)}</dd></div>
-            <div><dt className={labelClassName}>District</dt><dd className={valueClassName}>{displayValue(patient.district)}</dd></div>
-            <div><dt className={labelClassName}>Town</dt><dd className={valueClassName}>{displayValue(patient.town)}</dd></div>
-            <div><dt className={labelClassName}>Area</dt><dd className={valueClassName}>{displayValue(patient.area)}</dd></div>
-            {patient.createdBy ? (
-              <div><dt className={labelClassName}>Registered by</dt><dd className={valueClassName}>{patient.createdBy.firstName} {patient.createdBy.lastName}</dd></div>
-            ) : null}
-          </dl>
-        </section>
+        <div className="space-y-5">
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm print:shadow-none">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
+              <div>
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
+                  Patient
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">{patient.firstName} {patient.lastName}</h3>
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <IdCard className="h-4 w-4 text-primary" aria-hidden="true" />
+                  Patient ID / OPD No. {displayValue(patient.patientId)}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-6 pt-5">
+              <section aria-labelledby="patient-personal-details">
+                <h4 id="patient-personal-details" className="font-semibold text-foreground">Personal details</h4>
+                <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                  <div><PatientDetailLabel icon={CalendarDays}>Date of birth</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.dateOfBirth)}</dd></div>
+                  <div><PatientDetailLabel icon={Cake}>Age</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.age)}</dd></div>
+                  <div><PatientDetailLabel icon={UserRound}>Gender</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.gender)}</dd></div>
+                  <div><PatientDetailLabel icon={UsersRound}>Marital status</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.maritalStatus)}</dd></div>
+                  {patient.ghCardNumber ? <div><PatientDetailLabel icon={CreditCard}>Ghana Card number</PatientDetailLabel><dd className={valueClassName}>{patient.ghCardNumber}</dd></div> : null}
+                  {patient.nhisNumber ? <div><PatientDetailLabel icon={ShieldCheck}>NHIS number</PatientDetailLabel><dd className={valueClassName}>{patient.nhisNumber}</dd></div> : null}
+                </dl>
+              </section>
+
+              <section aria-labelledby="patient-contact-location" className="border-t border-border pt-5">
+                <h4 id="patient-contact-location" className="font-semibold text-foreground">Contact &amp; location</h4>
+                <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                  <div><PatientDetailLabel icon={Phone}>Phone</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.phone)}</dd></div>
+                  <div><PatientDetailLabel icon={MapPin}>Region</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.region)}</dd></div>
+                  <div><PatientDetailLabel icon={Building2}>District</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.district)}</dd></div>
+                  <div><PatientDetailLabel icon={MapPin}>Town</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.town)}</dd></div>
+                  <div><PatientDetailLabel icon={MapPin}>Area</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.area)}</dd></div>
+                  {formatTimestamp(patient.createdAt) ? (
+                    <div>
+                      <PatientDetailLabel icon={CalendarPlus}>Record created</PatientDetailLabel>
+                      <dd className={valueClassName}>{formatTimestamp(patient.createdAt)}</dd>
+                    </div>
+                  ) : null}
+                  {patient.createdBy ? (
+                    <div><PatientDetailLabel icon={UserCheck}>Registered by</PatientDetailLabel><dd className={valueClassName}>{patient.createdBy.firstName} {patient.createdBy.lastName}</dd></div>
+                  ) : null}
+                </dl>
+              </section>
+            </div>
+          </section>
+          <p className="text-xs text-muted-foreground print:hidden">
+            This patient ID is permanent and is also the OPD No. used for every visit.
+          </p>
+        </div>
       ) : null}
     </div>
   );
