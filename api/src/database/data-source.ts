@@ -5,7 +5,6 @@ import { User } from "./entities/User";
 import { Patient } from "./entities/Patient";
 import { OPDVisit } from "./entities/OPDVisit";
 import { PatientCounter } from "./entities/PatientCounter";
-import { OPDVisitCounter } from "./entities/OPDVisitCounter";
 // Guard against bundler minification renaming entity classes, which
 // corrupts TypeORM's internal dependency graph (targetName = class.name).
 // See: TypeORMError "Cyclic dependency: '<letter>'" in production builds.
@@ -39,7 +38,6 @@ export const AppDataSource = async () => {
       Patient,
       PatientCounter,
       OPDVisit,
-      OPDVisitCounter
     ],
   });
 
@@ -72,7 +70,6 @@ export const AppDataSource = async () => {
 //      Patient,
 //      PatientCounter,
 //      OPDVisit,
-//      OPDVisitCounter
 //     ],
 //   });
 // }
