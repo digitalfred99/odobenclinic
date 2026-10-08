@@ -17,6 +17,7 @@ export type Patient = {
   area?: string | null;
   gender?: PatientGender | null;
   maritalStatus?: PatientMaritalStatus | null;
+  imageUrl?: string | null;
   createdBy?: {
     id: string;
     firstName: string;

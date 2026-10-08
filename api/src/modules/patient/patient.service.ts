@@ -13,6 +13,8 @@ import { PaginationQuery } from "@/types/pagination.type";
 import { findPotentialDuplicate, lockPatientIdentity } from "@/modules/patient/patient.dedupe";
 import { writeAuditLog } from "@/lib/audit/writeAuditLog";
 import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
+import { createWithImages, type ImageFileInput } from "@/lib/storage/createWithImages";
+import { getStorageAdapter } from "@/lib/storage/getStorageAdapter";
 
 export class PatientService {
 
@@ -171,13 +173,9 @@ export class PatientService {
   // receptionist/admin) — required, since it's now stored permanently
   // as Patient.createdBy (distinct from OPDVisit.createdBy, which
   // records who logged each individual visit).
-  static async create(data: CreatePatientDTO, actorUserId: string) {
+  static async create(data: CreatePatientDTO, actorUserId: string, image?: ImageFileInput) {
     validateCreatePatient(data);
 
-    // Same normalization as update() applies — do it once here so every
-    // downstream use (lock key, dedupe check, and the actual insert
-    // below) sees the same normalized value instead of three different
-    // ad-hoc .trim()/.toUpperCase() calls scattered through this method.
     if (data.ghCardNumber) data.ghCardNumber = data.ghCardNumber.trim().toUpperCase();
     if (data.nhisNumber) data.nhisNumber = data.nhisNumber.trim();
 
@@ -189,91 +187,99 @@ export class PatientService {
       throw new CustomAppError("No authorized user found to register this patient", 404, ErrorCodes.UNAUTHORIZED_ACCESS.code, ErrorCodes.UNAUTHORIZED_ACCESS.label, "user_not_authorized");
     }
 
-    return db.transaction(async (manager: EntityManager) => {
-      // Serializes concurrent attempts to create "the same" patient —
-      // without this, two simultaneous requests for "Jane Doe" could
-      // both pass the check below and both insert.
-      await lockPatientIdentity(manager, {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        dateOfBirth: data.dateOfBirth ?? null,
-        ghCardNumber: data.ghCardNumber ?? null,
-        nhisNumber: data.nhisNumber ?? null,
-      });
+    const persist = (imageUrl?: string) =>
+      db.transaction(async (manager: EntityManager) => {
+        await lockPatientIdentity(manager, {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          dateOfBirth: data.dateOfBirth ?? null,
+          ghCardNumber: data.ghCardNumber ?? null,
+          nhisNumber: data.nhisNumber ?? null,
+        });
 
-      const duplicate = await findPotentialDuplicate(manager, {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        gender: data.gender,
-        dateOfBirth: data.dateOfBirth ?? null,
-        age: data.age ?? null,
-        phone: data.phone,
-        ghCardNumber: data.ghCardNumber ?? null,
-        nhisNumber: data.nhisNumber ?? null,
-      });
+        const duplicate = await findPotentialDuplicate(manager, {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          gender: data.gender,
+          dateOfBirth: data.dateOfBirth ?? null,
+          age: data.age ?? null,
+          phone: data.phone,
+          ghCardNumber: data.ghCardNumber ?? null,
+          nhisNumber: data.nhisNumber ?? null,
+        });
 
-      if (duplicate) {
-        throw new CustomAppError(
-          `An existing patient (ID: ${duplicate.patientId}) closely matches the information provided. Please review the record before creating a new patient.`,
-          409,
-          ErrorCodes.RECORD_ALREADY_EXISTS.code,
-          ErrorCodes.RECORD_ALREADY_EXISTS.label,
-          "patient_exists"
+        if (duplicate) {
+          throw new CustomAppError(
+            `An existing patient (ID: ${duplicate.patientId}) closely matches the information provided. Please review the record before creating a new patient.`,
+            409,
+            ErrorCodes.RECORD_ALREADY_EXISTS.code,
+            ErrorCodes.RECORD_ALREADY_EXISTS.label,
+            "patient_exists"
+          );
+        }
+
+        const year = this.todayYear();
+        const positionInYear = await this.nextPositionInYear(manager, year);
+
+        const repo = manager.getRepository(Patient);
+        const newPatient = repo.create({
+          patientId: `PT-${positionInYear}/${year}`,
+          year,
+          positionInYear,
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+          phone: data.phone,
+          dateOfBirth: data.dateOfBirth,
+          age: data.age,
+          region: data.region,
+          district: data.district,
+          town: data.town,
+          area: data.area,
+          gender: data.gender,
+          maritalStatus: data.maritalStatus,
+          ghCardNumber: data.ghCardNumber,
+          nhisNumber: data.nhisNumber,
+          imageUrl,
+          createdBy,
+        });
+
+        const savedPatient = await repo.save(newPatient);
+
+        await writeAuditLog(
+          {
+            actorUserId,
+            action: AuditAction.PATIENT_REGISTERED,
+            entityType: AuditEntityType.PATIENT,
+            entityId: savedPatient.id,
+            metadata: { patientId: savedPatient.patientId },
+          },
+          manager
         );
-      }
 
-      // The clinic's fixed, permanent number — e.g. positionInYear 12 in
-      // 2026 becomes patientId "PT-12/2026". `year` is the registration
-      // year, permanently, not tied to any later visit.
-      const year = this.todayYear();
-      const positionInYear = await this.nextPositionInYear(manager, year);
-
-      const repo = manager.getRepository(Patient);
-      const newPatient = repo.create({
-        patientId: `PT-${positionInYear}/${year}`,
-        year,
-        positionInYear,
-        firstName: data.firstName.trim(),
-        lastName: data.lastName.trim(),
-        phone: data.phone,
-        dateOfBirth: data.dateOfBirth,
-        age: data.age,
-        region: data.region,
-        district: data.district,
-        town: data.town,
-        area: data.area,
-        gender: data.gender,
-        maritalStatus: data.maritalStatus,
-        ghCardNumber: data.ghCardNumber,
-        nhisNumber: data.nhisNumber,
-        createdBy,
+        return {
+          ...savedPatient,
+          createdBy: { id: createdBy.id, firstName: createdBy.firstName, lastName: createdBy.lastName },
+        };
       });
 
-      const savedPatient = await repo.save(newPatient);
-
-      await writeAuditLog(
-        {
-          actorUserId,
-          action: AuditAction.PATIENT_REGISTERED,
-          entityType: AuditEntityType.PATIENT,
-          entityId: savedPatient.id,
-          metadata: { patientId: savedPatient.patientId },
-        },
-        manager
+    if (image) {
+      return await createWithImages(
+        { ...image, fieldName: "imageUrl" },
+        (urls) => persist(urls.imageUrl),
+        { folder: "patients" }
       );
+    }
 
-      // Don't echo the full User entity (passwordHash) back in the response.
-      return {
-        ...savedPatient,
-        createdBy: { id: createdBy.id, firstName: createdBy.firstName, lastName: createdBy.lastName },
-      };
-    });
+    return await persist();
   }
 
-  static async update(id: string, data: UpdatePatientDTO, actorUserId?: string) {
+  static async update(id: string, data: UpdatePatientDTO, actorUserId?: string, image?: ImageFileInput) {
     if (!id || !isUUID(id)) {
       throw new CustomAppError("Valid Patient ID is required", 400, ErrorCodes.ID_REQUIRED.code, ErrorCodes.ID_REQUIRED.label, "bad_request");
     }
+
+    // Mass-assignment guard: imageUrl is only ever set from an uploaded file.
+    delete (data as Record<string, unknown>).imageUrl;
 
     validatePatientEnum(data);
     validateGhCardNumber(data.ghCardNumber);
@@ -282,89 +288,103 @@ export class PatientService {
     if (data.nhisNumber) data.nhisNumber = data.nhisNumber.trim();
 
     const db = await AppDataSource();
+    const replaced: { url?: string } = {}; // previous photo, deleted only after commit
 
-    return db.transaction(async (manager: EntityManager) => {
-      const repo = manager.getRepository(Patient);
+    const persist = (newImageUrl?: string) =>
+      db.transaction(async (manager: EntityManager) => {
+        const repo = manager.getRepository(Patient);
 
-      const existingPatient = await repo.findOne({ where: { id, isDeleted: false } });
-      if (!existingPatient) {
-        throw new CustomAppError("No patient found with the given ID", 404, ErrorCodes.USER_NOT_FOUND.code, ErrorCodes.USER_NOT_FOUND.label, "patient_not_found");
-      }
-
-      // Only bother locking + checking when an identity-relevant field is
-      // actually changing — no need to contend for a lock when someone's
-      // just updating an address or marital status. ghCardNumber/
-      // nhisNumber are included: correcting or adding a government ID to
-      // an existing record is exactly the kind of edit that should
-      // re-trigger the duplicate check (see findByGovernmentId) — it's
-      // the strongest identity signal there is.
-      const identityFields = ["firstName", "lastName", "gender", "dateOfBirth", "phone", "age", "ghCardNumber", "nhisNumber"] as const;
-      const identityFieldsChanged = identityFields.some(
-        (key) => key in data && (data as any)[key] !== (existingPatient as any)[key]
-      );
-
-      const merged = { ...existingPatient, ...data };
-
-      // dateOfBirth/age can each be patched independently (both optional
-      // on UpdatePatientDTO), so re-validate the *resulting* pair rather
-      // than just the fields present on this particular request — that's
-      // the only way to catch an update that, say, clears dateOfBirth
-      // while age was never set either.
-      if ("dateOfBirth" in data || "age" in data) {
-        validateUpdatedAgeAndDob({ dateOfBirth: merged.dateOfBirth, age: merged.age });
-      }
-
-      if (identityFieldsChanged) {
-        await lockPatientIdentity(manager, {
-          firstName: merged.firstName,
-          lastName: merged.lastName,
-          dateOfBirth: merged.dateOfBirth ?? null,
-          ghCardNumber: merged.ghCardNumber ?? null,
-          nhisNumber: merged.nhisNumber ?? null,
+        const existingPatient = await repo.findOne({
+          where: { id, isDeleted: false },
+          lock: { mode: "pessimistic_write" },
         });
+        if (!existingPatient) {
+          throw new CustomAppError("No patient found with the given ID", 404, ErrorCodes.USER_NOT_FOUND.code, ErrorCodes.USER_NOT_FOUND.label, "patient_not_found");
+        }
 
-        const duplicate = await findPotentialDuplicate(
-          manager,
-          {
-            firstName: merged.firstName,
-            lastName: merged.lastName,
-            gender: merged.gender,
-            dateOfBirth: merged.dateOfBirth ?? null,
-            age: merged.age ?? null,
-            phone: merged.phone,
-            ghCardNumber: merged.ghCardNumber ?? null,
-            nhisNumber: merged.nhisNumber ?? null,
-          },
-          id
+        const identityFields = ["firstName", "lastName", "gender", "dateOfBirth", "phone", "age", "ghCardNumber", "nhisNumber"] as const;
+        const identityFieldsChanged = identityFields.some(
+          (key) => key in data && (data as any)[key] !== (existingPatient as any)[key]
         );
 
-        if (duplicate) {
-          throw new CustomAppError(
-            `This update would make the record match an existing patient (ID: ${duplicate.patientId}). Please review before saving.`,
-            409,
-            ErrorCodes.RECORD_ALREADY_EXISTS.code,
-            ErrorCodes.RECORD_ALREADY_EXISTS.label,
-            "patient_exists"
-          );
+        const merged = { ...existingPatient, ...data };
+
+        if ("dateOfBirth" in data || "age" in data) {
+          validateUpdatedAgeAndDob({ dateOfBirth: merged.dateOfBirth, age: merged.age });
         }
-      }
 
-      const updatedPatient = repo.merge(existingPatient, data);
-      const savedPatient = await repo.save(updatedPatient);
+        if (identityFieldsChanged) {
+          await lockPatientIdentity(manager, {
+            firstName: merged.firstName,
+            lastName: merged.lastName,
+            dateOfBirth: merged.dateOfBirth ?? null,
+            ghCardNumber: merged.ghCardNumber ?? null,
+            nhisNumber: merged.nhisNumber ?? null,
+          });
 
-      await writeAuditLog(
-        {
-          actorUserId,
-          action: AuditAction.PATIENT_PROFILE_UPDATED,
-          entityType: AuditEntityType.PATIENT,
-          entityId: savedPatient.id,
-          metadata: { changedFields: Object.keys(data) },
-        },
-        manager
-      );
+          const duplicate = await findPotentialDuplicate(
+            manager,
+            {
+              firstName: merged.firstName,
+              lastName: merged.lastName,
+              gender: merged.gender,
+              dateOfBirth: merged.dateOfBirth ?? null,
+              age: merged.age ?? null,
+              phone: merged.phone,
+              ghCardNumber: merged.ghCardNumber ?? null,
+              nhisNumber: merged.nhisNumber ?? null,
+            },
+            id
+          );
 
-      return savedPatient;
-    });
+          if (duplicate) {
+            throw new CustomAppError(
+              `This update would make the record match an existing patient (ID: ${duplicate.patientId}). Please review before saving.`,
+              409,
+              ErrorCodes.RECORD_ALREADY_EXISTS.code,
+              ErrorCodes.RECORD_ALREADY_EXISTS.label,
+              "patient_exists"
+            );
+          }
+        }
+
+        const previousImageUrl = existingPatient.imageUrl;
+
+        const updatedPatient = repo.merge(existingPatient, data, newImageUrl ? { imageUrl: newImageUrl } : {});
+        const savedPatient = await repo.save(updatedPatient);
+
+        await writeAuditLog(
+          {
+            actorUserId,
+            action: AuditAction.PATIENT_PROFILE_UPDATED,
+            entityType: AuditEntityType.PATIENT,
+            entityId: savedPatient.id,
+            metadata: { changedFields: [...Object.keys(data), ...(newImageUrl ? ["imageUrl"] : [])] },
+          },
+          manager
+        );
+
+        if (newImageUrl) replaced.url = previousImageUrl;
+        return savedPatient;
+      });
+
+    if (!image) return await persist();
+
+    const saved = await createWithImages(
+      { ...image, fieldName: "imageUrl" },
+      (urls) => persist(urls.imageUrl),
+      { folder: "patients" }
+    );
+
+    // Committed — now it's safe to drop the old photo. A failure here only
+    // orphans a file; it must never fail a request that already succeeded.
+    if (replaced.url) {
+      await getStorageAdapter().delete(replaced.url).catch((err) => {
+        console.error(`Failed to delete previous patient image ${replaced.url}`, err);
+      });
+    }
+
+    return saved;
   }
 
   static async delete(ids: string[], actorUserId?: string) {

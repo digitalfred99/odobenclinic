@@ -15,8 +15,13 @@ This frontend implements the clinic’s patient registration, OPD attendance, da
 
 ## Local setup
 
-1. Create a local environment file from the example template if needed.
-2. Start the backend on port 3000.
+1. Create a local environment file from the example template if needed:
+
+```bash
+cp .env.local.example .env.local
+```
+
+2. Start PostgreSQL using the settings in `api/.env`, then start the backend on port 3000.
 3. Run the frontend on port 3001:
 
 ```bash
@@ -24,7 +29,7 @@ npm install
 npm run dev
 ```
 
-The app expects `NEXT_PUBLIC_API_BASE_URL` to point to the backend API base, defaulting to `http://localhost:3000/api/v1`.
+The app uses the same-origin `/api/v1` proxy by default; Next.js forwards API and patient-upload requests to the backend on port 3000. Set `NEXT_PUBLIC_API_BASE_URL` only when you intentionally need to bypass that proxy.
 
 ## Useful scripts
 

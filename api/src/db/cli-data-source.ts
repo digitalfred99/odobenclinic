@@ -16,7 +16,7 @@ import { DataSource } from "typeorm";
 // });
 
 
-// //Production
+//Production
 export default new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,

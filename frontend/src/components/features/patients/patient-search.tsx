@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Filter, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { PatientListResponse } from "@/types/patient";
@@ -52,12 +53,13 @@ export function PatientSearchList({ className }: { className?: string }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<PatientFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<PatientFilters>(emptyFilters);
-  const queryString = buildPatientQuery(searchTerm, appliedFilters);
+  const debouncedSearchTerm = useDebouncedValue(searchTerm);
+  const queryString = buildPatientQuery(debouncedSearchTerm, appliedFilters);
   const activeFilterCount = Object.values(appliedFilters).filter((value) => value.trim()).length;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["patients", queryString],
-    queryFn: () => apiRequest<PatientListResponse>(`/patients${queryString}`),
+    queryFn: ({ signal }) => apiRequest<PatientListResponse>(`/patients${queryString}`, { signal }),
   });
 
   const patients = data?.patients ?? [];

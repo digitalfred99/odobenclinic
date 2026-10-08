@@ -50,7 +50,10 @@ describe("OPDVisitDetailPage", () => {
     expect(screen.getByText("Sunday, 4 October 2026")).toBeInTheDocument();
     expect(screen.getByText("Follow-up attendance")).toBeInTheDocument();
     expect(screen.getByText("Kojo Owusu")).toBeInTheDocument();
-    expect(apiRequest).toHaveBeenCalledWith("/opd-visits/visit-uuid");
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/opd-visits/visit-uuid",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "View patient record" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/patients/patient-uuid"));

@@ -105,6 +105,9 @@ export class Patient extends AppBaseEntity {
   @Column({ type: "varchar", length: 20, nullable: true })
   nhisNumber?: string;
 
+  @Column({ nullable: true })
+  imageUrl?: string;
+
   // Who registered this patient, permanently — distinct from
   // OPDVisit.createdBy, which records who logged each individual
   // attendance. RESTRICT for the same historical-integrity reason as

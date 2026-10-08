@@ -47,7 +47,8 @@ describe("PatientSearchList filters", () => {
 
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(
-        "/patients?gender=female&maritalStatus=married&region=Greater+Accra&patientId=PT-12%2F2026"
+        "/patients?gender=female&maritalStatus=married&region=Greater+Accra&patientId=PT-12%2F2026",
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
     expect(screen.queryByRole("form", { name: "Filter patients" })).not.toBeInTheDocument();
@@ -62,14 +63,20 @@ describe("PatientSearchList filters", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
 
     await waitFor(() => {
-      expect(apiRequest).toHaveBeenCalledWith("/patients?area=Osu");
+      expect(apiRequest).toHaveBeenCalledWith(
+        "/patients?area=Osu",
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Filters (1)" }));
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
 
     await waitFor(() => {
-      expect(apiRequest).toHaveBeenCalledWith("/patients");
+      expect(apiRequest).toHaveBeenCalledWith(
+        "/patients",
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
     expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
   });

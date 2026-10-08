@@ -194,7 +194,7 @@ export default function ReportsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["report", reportType, queryParams.toString()],
-    queryFn: async () => apiRequest<ReportListResponse>(`${endpoint}?${queryParams.toString()}`),
+    queryFn: ({ signal }) => apiRequest<ReportListResponse>(`${endpoint}?${queryParams.toString()}`, { signal }),
   });
 
   const rows = data?.rows ?? [];

@@ -17,41 +17,6 @@ import { OPDVisitCounter } from "./entities/OPDVisitCounter";
 
 // pinName(User, "User");
 
-// let dataSource: DataSource | null = null;
-
-// export const AppDataSource = async () => {
-//   if (dataSource && dataSource.isInitialized) {
-//     return dataSource;
-//   }
-
-//   dataSource = new DataSource({
-//     type: "postgres",
-//     host: process.env.DB_HOST,
-//     port: Number(process.env.DB_PORT),
-//     username: process.env.DB_USER,
-//     password: process.env.DB_PASSWORD,
-//     database: process.env.DB_NAME,
-//     synchronize: false,
-//     logging: process.env.NODE_ENV === "development",
-//     entities: [
-//       AuditLog,
-//       User,
-//       Patient,
-//       PatientCounter,
-//       OPDVisit,
-//       OPDVisitCounter
-//     ],
-//   });
-
-//   if (!dataSource.isInitialized) {
-//     await dataSource.initialize();
-//   }
-
-//   return dataSource;
-// };
-
-
-// //Production
 declare global {
   // eslint-disable-next-line no-var
   var __appDataSource: DataSource | undefined;
@@ -67,28 +32,30 @@ function buildDataSource() {
     synchronize: false,
     logging: process.env.NODE_ENV === "development",
     entities: [
-     AuditLog,
-     User,
-     Patient,
-     PatientCounter,
-     OPDVisit,
-     OPDVisitCounter
+      AuditLog,
+      User,
+      Patient,
+      PatientCounter,
+      OPDVisit,
+      OPDVisitCounter
     ],
   });
 }
 
-export const AppDataSource = async () => {
+export const AppDataSource = async (): Promise<DataSource> => {
   if (globalThis.__appDataSource?.isInitialized) {
     return globalThis.__appDataSource;
   }
 
-  // Prevent concurrent callers from each starting their own initialize()
   if (!globalThis.__appDataSourceInitPromise) {
-    const ds = globalThis.__appDataSource ?? buildDataSource();
-    globalThis.__appDataSource = ds;
-    globalThis.__appDataSourceInitPromise = ds.initialize();
+    const dataSource = globalThis.__appDataSource ?? buildDataSource();
+    globalThis.__appDataSource = dataSource;
+    globalThis.__appDataSourceInitPromise = dataSource.initialize().catch((error: unknown) => {
+      globalThis.__appDataSource = undefined;
+      globalThis.__appDataSourceInitPromise = undefined;
+      throw error;
+    });
   }
 
-  await globalThis.__appDataSourceInitPromise;
-  return globalThis.__appDataSource!;
+  return globalThis.__appDataSourceInitPromise;
 };

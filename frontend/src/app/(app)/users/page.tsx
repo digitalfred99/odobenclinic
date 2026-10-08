@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Check, Plus, Search, X } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -41,20 +42,21 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<UserConfirmation | null>(null);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
+  const debouncedSearch = useDebouncedValue(search);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
-    if (search.trim()) params.set("search", search.trim());
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (roleFilter) params.set("role", roleFilter);
     if (activeFilter) params.set("isActive", activeFilter);
     params.set("page", String(page));
     params.set("limit", "20");
     return params;
-  }, [activeFilter, page, roleFilter, search]);
+  }, [activeFilter, debouncedSearch, page, roleFilter]);
 
   const { data, isLoading, error: queryError, refetch } = useQuery({
     queryKey: ["users", queryParams.toString()],
-    queryFn: async () => apiRequest<UsersListResponse>(`/users?${queryParams.toString()}`),
+    queryFn: ({ signal }) => apiRequest<UsersListResponse>(`/users?${queryParams.toString()}`, { signal }),
   });
 
   const users = data?.users ?? [];

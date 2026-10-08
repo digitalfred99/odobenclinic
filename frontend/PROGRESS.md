@@ -125,3 +125,15 @@
 - Follow-up: replaced CSV report downloads with Excel workbooks so the selected column headings can be bold; retained selected-field export.
 - Follow-up: defined worksheet columns and widths explicitly so exported data starts at A1, and removed pane/filter settings that could leave the workbook viewport offset or obscure content.
 - Follow-up: show an em dash for null, undefined, or blank values in Excel exports and printed report cells.
+
+## Patient detail photo follow-up
+- Display the patient's photo on the patient detail view when the API returns `imageUrl`; relative upload paths resolve against the configured API origin.
+- Validation: focused patient detail and photo URL tests, frontend lint, and production build.
+
+## Query and interaction performance
+- Debounced patient, OPD visit, user, and audit actor text searches by 250 ms to avoid a request for each keystroke.
+- Forwarded React Query cancellation signals to data-fetch requests so obsolete queries can be aborted, including patient lookup on OPD registration.
+- Deferred OPD patient lookup until the receptionist enters a search term instead of loading a default patient page on screen entry.
+- After patient creation, invalidate patient search caches without remounting the search panel, preserving its current search and filters.
+- Added a unit test for the shared debounce behavior.
+- Validation: focused tests pass (7 tests across 4 files), the changed query/search files pass targeted ESLint, and the production build passes. Full frontend lint remains blocked by four pre-existing errors in OPD registration initialization, auth initialization, and patient identifier input refs.

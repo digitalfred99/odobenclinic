@@ -7,6 +7,7 @@ import { withAuth, AuthedHandler } from "@/middleware/withAuth";
 import { FilterPatientDTO } from "@/types/patient.type";
 import { PaginationQuery } from "@/types/pagination.type";
 import { UserRole } from "@/database/entities/User";
+import { parseCreatePatientRequest } from "@/modules/patient/patient.request";
 
 // Get list of patients with optional filters — admin/receptionist
 const getHandler: AuthedHandler = async (req, _ctx) => {
@@ -38,8 +39,8 @@ const getHandler: AuthedHandler = async (req, _ctx) => {
 // and Patient.createdBy (who permanently registered this patient).
 const postHandler: AuthedHandler = async (req, _ctx) => {
     try {
-        const data = await req.json();
-        const patient = await PatientController.createPatient(data, req.user.sub);
+        const { data, image } = await parseCreatePatientRequest(req);
+        const patient = await PatientController.createPatient(data, req.user.sub, image);
         return customResponse(SuccessCodes.RECORD_CREATED.code, SuccessCodes.RECORD_CREATED.message, 201, patient);
     } catch (error) {
         return handleError(error)

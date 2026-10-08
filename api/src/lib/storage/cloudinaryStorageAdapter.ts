@@ -12,7 +12,7 @@ cloudinary.config({
 export class CloudinaryStorageAdapter implements ImageStorageAdapter {
   async upload(buffer: Buffer, originalName: string, folder = ""): Promise<string> {
     const publicId = crypto.randomUUID();
-    const fullFolder = folder ? `yes-awards/${folder}` : "yes-awards";
+    const fullFolder = folder ? `odoben-clinic/${folder}` : "odoben-clinic";
 
     return new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
@@ -39,7 +39,7 @@ export class CloudinaryStorageAdapter implements ImageStorageAdapter {
 
   // We set public_id ourselves at upload time, so we can reliably
   // recover it from Cloudinary's standard delivery URL shape:
-  // https://res.cloudinary.com/<cloud>/image/upload/v169.../yes-awards/profiles/<uuid>.jpg
+  // https://res.cloudinary.com/<cloud>/image/upload/v169.../odoben-clinic/profiles/<uuid>.jpg
   private extractPublicId(url: string): string | null {
     const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/);
     return match ? match[1] : null;
