@@ -11,7 +11,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <AppSidebar />
         </div>
 
-        <div className="lg:pl-72 print:pl-0">
+        <div className="pt-16 lg:pl-72 lg:pt-0 print:pl-0 print:pt-0">
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:px-0 print:py-0">{children}</main>
         </div>
       </div>

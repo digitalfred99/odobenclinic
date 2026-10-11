@@ -24,11 +24,15 @@ export const patientFormSchema = z
     lastName: z.string().trim().min(1, "Last name is required"),
     dateOfBirth: z.string().optional().or(z.literal("")),
     age: z.union([
-      z.coerce.number().min(0, "Age must be at least 0").max(130, "Age must be 130 or less"),
+      z.number().int().min(0, "Age must be at least 0").max(130, "Age must be 130 or less"),
       z.literal(""),
-      z.string().trim(),
+      z.string().trim().regex(/^\d+$/, "Age must be a whole number").transform(Number)
+        .pipe(z.number().int().min(0, "Age must be at least 0").max(130, "Age must be 130 or less")),
     ]).optional(),
-    phone: z.string().trim().refine((phone) => phone === "" || isTenDigitPhoneNumber(phone), "Phone number must be exactly 10 digits").optional().or(z.literal("")),
+    phone: z.string().trim().refine(
+      (phone) => phone === "" || isTenDigitPhoneNumber(phone),
+      "Phone number must start with 0 and contain exactly 10 digits"
+    ).optional().or(z.literal("")),
     ghCardNumber: z.string().optional().or(z.literal("")).refine(
       (value) => !value || /^GHA-\d{9}-\d$/.test(value),
       "Enter a valid Ghana Card number in the format GHA-XXXXXXXXX-X."
@@ -41,8 +45,11 @@ export const patientFormSchema = z
     district: z.string().trim().optional().or(z.literal("")),
     town: z.string().trim().optional().or(z.literal("")),
     area: z.string().trim().optional().or(z.literal("")),
-    gender: z.enum(["male", "female"]).optional().or(z.literal("")),
-    maritalStatus: z.enum(["single", "married", "divorced", "widowed"]).optional().or(z.literal("")),
+    gender: z.enum(["male", "female"]).optional().or(z.literal(""))
+      .refine((gender) => gender !== "" && gender !== undefined, "Gender is required"),
+    maritalStatus: z.enum(["single", "married", "divorced", "widowed"], {
+      error: "Marital status is required",
+    }),
   })
   .superRefine((values, ctx) => {
     const hasDob = Boolean(values.dateOfBirth && values.dateOfBirth.length > 0);

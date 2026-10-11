@@ -111,6 +111,12 @@ export function validateNhisNumber(nhisNumber: string | undefined) {
 export function validateCreatePatient(data: CreatePatientDTO) {
   if (!data.firstName?.trim()) fail("firstName is required");
   if (!data.lastName?.trim()) fail("lastName is required");
+  if (
+    data.confirmedDuplicatePatientId !== undefined &&
+    !/^PT-\d+\/\d{4}$/.test(data.confirmedDuplicatePatientId)
+  ) {
+    fail("confirmedDuplicatePatientId must be a valid patient ID");
+  }
   // phone is intentionally optional — not every patient has (or should
   // be recorded under) a phone number, and the dedupe check falls back
   // to date of birth / age when phone isn't available.

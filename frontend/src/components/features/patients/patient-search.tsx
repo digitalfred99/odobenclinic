@@ -209,16 +209,20 @@ export function PatientSearchList({ className }: { className?: string }) {
 
       <div className="space-y-3">
         {patients.map((patient) => (
-          <div key={patient.id} className="flex flex-col gap-3 rounded-xl border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+          <div key={patient.id} className="flex flex-col gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <p className="font-medium text-foreground">{patient.firstName} {patient.lastName}</p>
-              <p className="text-sm text-muted-foreground">{patient.patientId ?? "Patient"} • {patient.area ?? "N/A"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {patient.patientId ?? "Patient"}
+                {patient.town ? ` • ${patient.town}` : ""}
+                {patient.area ? ` • ${patient.area}` : ""}
+              </p>
             </div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex">
               <Button type="button" variant="secondary" size="sm" onClick={() => router.push(`/patients/${patient.id}`)}>
                 View
               </Button>
-              <Button type="button" size="sm" onClick={() => router.push(`/opd-visits?patientId=${encodeURIComponent(patient.id)}`)}>
+              <Button type="button" size="sm" onClick={() => router.push(`/opd-visits/register?patientId=${encodeURIComponent(patient.id)}`)}>
                 Register OPD
               </Button>
             </div>

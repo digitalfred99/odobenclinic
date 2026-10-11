@@ -16,6 +16,9 @@ export type ReportRow = {
   nhisNumber?: string | null;
   date?: string;
   newReturning?: "new" | "returning";
+  remarks?: string | null;
+  visitRecordedAt?: string | null;
+  visitsInReport?: number;
   dateRegistered?: string;
 };
 

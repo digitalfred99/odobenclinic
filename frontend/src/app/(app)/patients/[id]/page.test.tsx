@@ -29,7 +29,8 @@ function renderPatientDetail() {
 
 describe("PatientDetailPage", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.mocked(apiRequest).mockReset();
+    push.mockReset();
   });
 
   it("shows the matching detail skeleton while the patient loads", () => {
@@ -40,7 +41,7 @@ describe("PatientDetailPage", () => {
   });
 
   it("renders patient details in grouped cards after loading", async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
+    vi.mocked(apiRequest).mockResolvedValueOnce({
       id: "patient-uuid",
       firstName: "Ama",
       lastName: "Mensah",
@@ -59,6 +60,7 @@ describe("PatientDetailPage", () => {
       createdAt: "2026-10-04T12:34:00.000Z",
       createdBy: { id: "staff-id", firstName: "Kojo", lastName: "Owusu" },
     });
+    vi.mocked(apiRequest).mockResolvedValueOnce({ opdVisits: [], pagination: { total: 0, totalPages: 1 } });
 
     renderPatientDetail();
 
@@ -71,20 +73,47 @@ describe("PatientDetailPage", () => {
     expect(screen.getByText("This patient ID is permanent and is also the OPD No. used for every visit.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Register OPD visit" }));
-    expect(push).toHaveBeenCalledWith("/opd-visits?patientId=patient-uuid");
+    expect(push).toHaveBeenCalledWith("/opd-visits/register?patientId=patient-uuid");
   });
 
   it("displays the patient photo when one is available", async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
+    vi.mocked(apiRequest).mockResolvedValueOnce({
       id: "patient-uuid",
       firstName: "Ama",
       lastName: "Mensah",
       imageUrl: "/uploads/patients/ama.jpg",
     });
+    vi.mocked(apiRequest).mockResolvedValueOnce({ opdVisits: [], pagination: { total: 0, totalPages: 1 } });
 
     renderPatientDetail();
 
     const photo = await screen.findByRole("img", { name: "Patient photo of Ama Mensah" });
     expect(photo).toHaveAttribute("src", expect.stringContaining("/uploads/patients/ama.jpg"));
+  });
+
+  it("shows visit remarks and paginates the patient's attendance history", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      id: "patient-uuid",
+      firstName: "Ama",
+      lastName: "Mensah",
+      patientId: "PT-12/2026",
+    });
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      opdVisits: [{
+        id: "visit-1",
+        date: "2026-10-09",
+        remarks: "Review appointment",
+        newReturning: "returning",
+        createdAt: "2026-10-09T08:45:00.000Z",
+        patient: { id: "patient-uuid", firstName: "Ama", lastName: "Mensah" },
+      }],
+      pagination: { page: 1, limit: 20, total: 21, totalPages: 2 },
+    });
+
+    renderPatientDetail();
+
+    expect(await screen.findByText("Review appointment")).toBeInTheDocument();
+    expect(screen.getByText("Friday, 9 October 2026")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next visit history page" })).toBeEnabled();
   });
 });

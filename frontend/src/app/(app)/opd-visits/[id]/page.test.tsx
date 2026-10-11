@@ -19,8 +19,10 @@ vi.mock("@/lib/api", () => ({
       lastName: "Mensah",
       phone: "0241234567",
       area: "Osu",
+      createdAt: "2020-02-10T09:15:00.000Z",
     },
     createdBy: { id: "staff-uuid", firstName: "Kojo", lastName: "Owusu" },
+    createdAt: "2026-10-04T12:34:00.000Z",
   }),
 }));
 
@@ -46,10 +48,13 @@ describe("OPDVisitDetailPage", () => {
     renderVisitDetail();
 
     expect(await screen.findByRole("heading", { level: 2, name: "Ama Mensah" })).toBeInTheDocument();
-    expect(screen.getByText("PT-12/2026")).toBeInTheDocument();
+    expect(screen.getByText("OPD No. 12/2026")).toBeInTheDocument();
+    expect(screen.getByText("12/2026")).toBeInTheDocument();
     expect(screen.getByText("Sunday, 4 October 2026")).toBeInTheDocument();
     expect(screen.getByText("Follow-up attendance")).toBeInTheDocument();
     expect(screen.getByText("Kojo Owusu")).toBeInTheDocument();
+    expect(screen.getByText("Patient first registered")).toBeInTheDocument();
+    expect(screen.getByText("Recorded 4 Oct 2026, 12:34 PM")).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith(
       "/opd-visits/visit-uuid",
       expect.objectContaining({ signal: expect.any(AbortSignal) })

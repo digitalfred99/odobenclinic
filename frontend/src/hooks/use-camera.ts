@@ -35,8 +35,10 @@ export function useCamera() {
   const mountedRef = useRef(false);
   const liveModeRef = useRef(true);
   const selectedDeviceRef = useRef<string | null>(null);
+  const switchingRef = useRef(false);
   const flashTimeoutRef = useRef<number | null>(null);
   const [isStarting, setIsStarting] = useState(true);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null);
@@ -67,7 +69,7 @@ export function useCamera() {
     return cameras;
   }, []);
 
-  const startCamera = useCallback(async (deviceId?: string) => {
+  const startCamera = useCallback(async (deviceId?: string, fallbackFacingMode: "user" | "environment" = "user") => {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setError("Camera needs a secure (HTTPS) connection. You can upload a photo instead.");
       setIsStarting(false);
@@ -92,7 +94,7 @@ export function useCamera() {
             height: { ideal: 720 },
           }
         : {
-            facingMode: "user",
+            facingMode: fallbackFacingMode,
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
@@ -125,7 +127,7 @@ export function useCamera() {
       if (settings?.deviceId) {
         selectedDeviceRef.current = settings.deviceId;
       }
-      setIsFrontFacing(settings?.facingMode ? settings.facingMode === "user" : !deviceId);
+      setIsFrontFacing(settings?.facingMode ? settings.facingMode === "user" : fallbackFacingMode === "user");
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
@@ -198,7 +200,7 @@ export function useCamera() {
 
     setCaptureError(null);
     try {
-      const photo = await createPatientPhotoFromVideo(video);
+      const photo = await createPatientPhotoFromVideo(video, isFrontFacing);
       setCapturedPhoto(photo);
       liveModeRef.current = false;
       setIsLiveMode(false);
@@ -212,7 +214,7 @@ export function useCamera() {
       setCaptureError(captureError instanceof Error ? captureError.message : "Unable to capture this photo.");
       return null;
     }
-  }, []);
+  }, [isFrontFacing]);
 
   const retakePhoto = useCallback(() => {
     setCapturedPhoto(null);
@@ -220,11 +222,17 @@ export function useCamera() {
     liveModeRef.current = true;
     setIsLiveMode(true);
     if (!streamRef.current) {
-      void startCamera(selectedDeviceRef.current ?? undefined);
+      void startCamera(selectedDeviceRef.current ?? undefined, isFrontFacing ? "user" : "environment");
     }
-  }, [startCamera]);
+  }, [isFrontFacing, startCamera]);
 
   const switchCamera = useCallback(async () => {
+    if (switchingRef.current) {
+      return;
+    }
+
+    switchingRef.current = true;
+    setIsSwitching(true);
     try {
       const cameras = await refreshDevices();
       if (cameras.length < 2) {
@@ -234,21 +242,25 @@ export function useCamera() {
       const currentIndex = cameras.findIndex((camera) => camera.deviceId === selectedDeviceRef.current);
       const nextIndex = currentIndex < 0 ? 1 % cameras.length : (currentIndex + 1) % cameras.length;
       const nextCamera = cameras[nextIndex];
+      const nextFacingMode = isFrontFacing ? "environment" : "user";
       selectedDeviceRef.current = nextCamera.deviceId;
-      setIsFrontFacing((current) => !current);
-      await startCamera(nextCamera.deviceId);
+      await startCamera(nextCamera.deviceId, nextFacingMode);
     } catch {
       setError("Unable to switch cameras. Please try again.");
+    } finally {
+      switchingRef.current = false;
+      setIsSwitching(false);
     }
-  }, [refreshDevices, startCamera]);
+  }, [isFrontFacing, refreshDevices, startCamera]);
 
   const retry = useCallback(() => {
-    void startCamera(selectedDeviceRef.current ?? undefined);
-  }, [startCamera]);
+    void startCamera(selectedDeviceRef.current ?? undefined, isFrontFacing ? "user" : "environment");
+  }, [isFrontFacing, startCamera]);
 
   return {
     videoRef,
     isStarting,
+    isSwitching,
     videoReady,
     error,
     capturedPhoto,

@@ -11,7 +11,11 @@ export type OPDVisit = {
     firstName: string;
     lastName: string;
     phone?: string | null;
+    region?: string | null;
+    district?: string | null;
+    town?: string | null;
     area?: string | null;
+    createdAt?: string;
   };
   createdBy?: {
     id: string;

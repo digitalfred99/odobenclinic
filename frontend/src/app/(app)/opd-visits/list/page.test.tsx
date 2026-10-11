@@ -8,8 +8,10 @@ vi.mock("@/lib/api", () => ({
   apiRequest: vi.fn().mockResolvedValue({ opdVisits: [], pagination: { total: 0, totalPages: 1 } }),
 }));
 
+const push = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }));
 
 function renderVisitList() {
@@ -50,5 +52,30 @@ describe("OPD visit list filters", () => {
       );
     });
     expect(screen.getByRole("button", { name: "Filters (1)" })).toBeInTheDocument();
+  });
+
+  it("shows the shortened OPD number and town, and opens the visit form", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      opdVisits: [{
+        id: "visit-1",
+        date: "2026-10-09",
+        newReturning: "new",
+        patient: {
+          id: "patient-1",
+          patientId: "PT-12/2026",
+          firstName: "Ama",
+          lastName: "Mensah",
+          town: "Odoben",
+        },
+      }],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
+
+    renderVisitList();
+
+    expect(await screen.findByText(/OPD No\. 12\/2026/)).toBeInTheDocument();
+    expect(screen.getByText("Odoben")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Register visit" }));
+    expect(push).toHaveBeenCalledWith("/opd-visits/register");
   });
 });

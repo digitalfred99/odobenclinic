@@ -15,6 +15,7 @@ export type CreatePatientDTO = {
     maritalStatus: MaritalStatus;
     ghCardNumber?: string;
     nhisNumber?: string;
+    confirmedDuplicatePatientId?: string;
 };
 
 // ── Update ───────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
-import { ArrowLeft, CalendarDays, ClipboardList, MapPin, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarPlus, ClipboardList, MapPin, Phone, UserRound } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
@@ -18,6 +18,10 @@ function formatTimestamp(value?: string) {
   if (!value) return null;
   const date = parseISO(value);
   return isValid(date) ? format(date, "d MMM yyyy, h:mm a") : value;
+}
+
+function formatOPDNo(value?: string | null) {
+  return value?.replace(/^PT-/, "") || "Not available";
 }
 
 export default function OPDVisitDetailPage() {
@@ -43,7 +47,7 @@ export default function OPDVisitDetailPage() {
             size="icon"
             aria-label="Back to OPD visit list"
             title="Back to OPD visit list"
-            onClick={() => router.push("/opd-visits/list")}
+            onClick={() => router.push("/opd-visits")}
           >
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </Button>
@@ -86,7 +90,7 @@ export default function OPDVisitDetailPage() {
           <p className="mt-1 text-sm text-muted-foreground">The visit may have been removed, or there may be a connection problem.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => void refetch()}>Try again</Button>
-            <Button type="button" variant="secondary" onClick={() => router.push("/opd-visits/list")}>Back to visit list</Button>
+            <Button type="button" variant="secondary" onClick={() => router.push("/opd-visits")}>Back to visit list</Button>
           </div>
         </section>
       ) : null}
@@ -98,7 +102,7 @@ export default function OPDVisitDetailPage() {
               <div>
                 <p className={labelClassName}>Patient</p>
                 <h3 className="mt-1 text-xl font-semibold text-foreground">{visit.patient.firstName} {visit.patient.lastName}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">OPD No. {visit.patient.patientId ?? "Not available"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">OPD No. {formatOPDNo(visit.patient.patientId)}</p>
               </div>
               {visit.newReturning ? (
                 <span className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold capitalize text-secondary-foreground">
@@ -114,10 +118,13 @@ export default function OPDVisitDetailPage() {
                   <CalendarDays className="h-4 w-4 text-primary" aria-hidden="true" />
                   {formatDate(visit.date)}
                 </dd>
+                {formatTimestamp(visit.createdAt) ? (
+                  <dd className="mt-1.5 text-xs text-muted-foreground">Recorded {formatTimestamp(visit.createdAt)}</dd>
+                ) : null}
               </div>
               <div>
-                <dt className={labelClassName}>Patient ID</dt>
-                <dd className={valueClassName}>{visit.patient.patientId ?? "Not available"}</dd>
+                <dt className={labelClassName}>OPD No.</dt>
+                <dd className={valueClassName}>{formatOPDNo(visit.patient.patientId)}</dd>
               </div>
               <div>
                 <dt className={labelClassName}>Visit classification</dt>
@@ -150,12 +157,6 @@ export default function OPDVisitDetailPage() {
                   {visit.createdBy ? `${visit.createdBy.firstName} ${visit.createdBy.lastName}` : "Not recorded"}
                 </dd>
               </div>
-              {formatTimestamp(visit.createdAt) ? (
-                <div>
-                  <dt className={labelClassName}>Record created</dt>
-                  <dd className={valueClassName}>{formatTimestamp(visit.createdAt)}</dd>
-                </div>
-              ) : null}
             </dl>
           </section>
 
@@ -169,6 +170,16 @@ export default function OPDVisitDetailPage() {
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">No remarks were recorded for this visit.</p>
             )}
+          </section>
+
+          <section className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" aria-label="Patient registration date">
+            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <CalendarPlus className="h-4 w-4 text-primary" aria-hidden="true" />
+              Patient first registered
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {formatTimestamp(visit.patient.createdAt) ?? "Registration date unavailable"}
+            </p>
           </section>
 
           <p className="text-xs text-muted-foreground print:hidden">

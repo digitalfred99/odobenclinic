@@ -16,6 +16,7 @@ export default function PatientPhotoCamera({ onClose, onUsePhoto }: PatientPhoto
   const {
     videoRef,
     isStarting,
+    isSwitching,
     videoReady,
     error,
     capturedPhoto,
@@ -115,6 +116,18 @@ export default function PatientPhotoCamera({ onClose, onUsePhoto }: PatientPhoto
               ) : null}
               {isLiveMode ? (
                 <>
+                  {hasMultipleCameras ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="absolute right-3 top-3 z-10 min-h-12 min-w-12 touch-manipulation rounded-full border border-border/70 bg-card/95 p-0 shadow-lg backdrop-blur-sm"
+                      aria-label={`Switch to ${isFrontFacing ? "back" : "front"} camera`}
+                      disabled={isStarting || isSwitching}
+                      onClick={() => void switchCamera()}
+                    >
+                      <RefreshCw className={`h-5 w-5 ${isSwitching ? "animate-spin" : ""}`} aria-hidden="true" />
+                    </Button>
+                  ) : null}
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
                     <div className="h-[78%] w-[54%] rounded-[50%] border-2 border-background/80 shadow-[0_0_0_999px_color-mix(in_srgb,var(--foreground)_18%,transparent)]" />
                   </div>
@@ -158,12 +171,7 @@ export default function PatientPhotoCamera({ onClose, onUsePhoto }: PatientPhoto
                 </div>
               </>
             ) : (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {hasMultipleCameras ? (
-                  <Button type="button" variant="secondary" className="min-h-11" onClick={() => void switchCamera()}>
-                    <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />Switch camera
-                  </Button>
-                ) : <span />}
+              <div className="flex flex-wrap justify-end gap-2">
                 <Button
                   type="button"
                   className="min-h-11 min-w-32"

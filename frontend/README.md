@@ -31,6 +31,8 @@ npm run dev
 
 The app uses the same-origin `/api/v1` proxy by default; Next.js forwards API and patient-upload requests to the backend on port 3000. Set `NEXT_PUBLIC_API_BASE_URL` only when you intentionally need to bypass that proxy.
 
+Optional inactive-account support links can be configured with `NEXT_PUBLIC_SUPPORT_PHONE` and `NEXT_PUBLIC_SUPPORT_EMAIL`. If either value is unset, its contact link is not shown.
+
 ## Useful scripts
 
 ```bash
@@ -40,9 +42,15 @@ npm run test
 npm run build
 ```
 
+When a development server is running in the same workspace, the production build can use a separate output directory to avoid competing for `.next`:
+
+```bash
+NEXT_BUILD_DIR=.next-production npm run build
+```
+
 ## Theme
 
-Theme tokens live in the app styling layer and can be adjusted in the shared design tokens used by the clinic UI.
+Theme tokens live in `src/app/globals.css` and can be adjusted centrally using the CSS variables used by the clinic UI.
 
 ## Notes
 

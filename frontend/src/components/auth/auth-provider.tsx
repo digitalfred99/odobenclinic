@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest, loginUser, logoutUser } from "@/lib/api";
+import { refreshPatientLocationCache } from "@/lib/patient-location-cache";
 import { clearSession, readSession, writeSession } from "@/lib/session";
 import type { AuthUser } from "@/types/auth";
 
@@ -24,9 +25,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const session = readSession();
+    // Read persisted auth only after hydration so the server and first client render match.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUser(session?.user ?? null);
     setStatus(session ? "authenticated" : "unauthenticated");
   }, []);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      return;
+    }
+    void refreshPatientLocationCache().catch((error: unknown) => {
+      console.error("Unable to refresh saved patient location suggestions.", error);
+    });
+  }, [status]);
 
   const login = useCallback(async (phone: string, password: string) => {
     const response = await loginUser(phone, password);

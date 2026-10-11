@@ -134,6 +134,14 @@ export async function findPotentialDuplicate(
   const idMatch = await findByGovernmentId(manager, identity, excludeId);
   if (idMatch) return idMatch;
 
+  return findDemographicDuplicate(manager, identity, excludeId);
+}
+
+export async function findDemographicDuplicate(
+  manager: EntityManager,
+  identity: PatientIdentity,
+  excludeId?: string
+): Promise<Patient | null> {
   const firstName = normalizeName(identity.firstName);
   const lastName = normalizeName(identity.lastName);
   const phoneDigits = identity.phone ? identity.phone.replace(/\D/g, "") : null;

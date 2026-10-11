@@ -10,6 +10,7 @@ const STRING_FIELDS = [
   "firstName", "lastName", "phone", "dateOfBirth",
   "region", "district", "town", "area",
   "gender", "maritalStatus", "ghCardNumber", "nhisNumber",
+  "confirmedDuplicatePatientId",
 ] as const;
 
 const badRequest = (message: string, key: string, status = 400) =>

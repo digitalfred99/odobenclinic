@@ -111,31 +111,8 @@ export function AppSidebar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [mobileOpenForPath, setMobileOpenForPath] = useState<string | null>(null);
-  const [mobileHeaderVisible, setMobileHeaderVisible] = useState(true);
   const mobileOpen = mobileOpenForPath === pathname;
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
-
-  useEffect(() => {
-    let previousScrollY = document.scrollingElement?.scrollTop ?? window.scrollY;
-    let accumulatedScrollDelta = 0;
-
-    const handleScroll = () => {
-      const currentScrollY = document.scrollingElement?.scrollTop ?? window.scrollY;
-      accumulatedScrollDelta += currentScrollY - previousScrollY;
-      previousScrollY = currentScrollY;
-
-      if (currentScrollY <= 24) {
-        accumulatedScrollDelta = 0;
-        setMobileHeaderVisible(true);
-      } else if (Math.abs(accumulatedScrollDelta) >= 14) {
-        setMobileHeaderVisible(accumulatedScrollDelta < 0);
-        accumulatedScrollDelta = 0;
-      }
-    };
-
-    document.addEventListener("scroll", handleScroll, { passive: true, capture: true });
-    return () => document.removeEventListener("scroll", handleScroll, true);
-  }, []);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -157,28 +134,30 @@ export function AppSidebar() {
     void logout();
   };
 
-  const isMobileHeaderVisible = mobileHeaderVisible || mobileOpen;
-
   return (
     <>
       <header
-        className={cn(
-          "sticky top-0 z-30 border-b border-border bg-card px-4 py-3 shadow-sm transition-opacity duration-200 ease-linear motion-reduce:transition-none lg:hidden",
-          isMobileHeaderVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        aria-hidden={!isMobileHeaderVisible}
+        className="fixed inset-x-0 top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/95 px-4 shadow-sm backdrop-blur lg:hidden"
       >
         <button
           type="button"
           aria-label="Open navigation menu"
           aria-expanded={mobileOpen}
           aria-controls="mobile-navigation-drawer"
-          tabIndex={isMobileHeaderVisible ? 0 : -1}
           className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => setMobileOpenForPath(pathname)}
         >
           <Menu className="h-5 w-5" />
         </button>
+        <div className="flex items-center gap-2.5" aria-label="Odoben Clinic">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <HeartPulse className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="text-right text-sm font-bold leading-tight tracking-wide text-foreground">
+            ODOBEN
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">Clinic</span>
+          </span>
+        </div>
       </header>
 
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-border bg-card/95 shadow-sm backdrop-blur-sm lg:flex">
@@ -195,7 +174,7 @@ export function AppSidebar() {
         <button
           type="button"
           aria-label="Close navigation menu"
-          className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-[2px] lg:hidden"
           onClick={() => setMobileOpenForPath(null)}
         />
       ) : null}

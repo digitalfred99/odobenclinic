@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Input } from "@/components/ui/input";
 import { isTenDigitPhoneNumber } from "@/lib/phone";
+import { ApiError } from "@/lib/api";
+import { supportEmail, supportPhone } from "@/lib/support-contact";
 
 const loginSchema = z.object({
   phone: z.string().min(1, "Phone number is required").refine(isTenDigitPhoneNumber, "Phone number must be exactly 10 digits"),
@@ -22,6 +24,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [inactiveAccount, setInactiveAccount] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -38,14 +41,19 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     setSubmitError(null);
+    setInactiveAccount(false);
     setIsSubmitting(true);
 
     try {
       await login(values.phone, values.password);
       router.replace("/dashboard");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Login failed";
-      setSubmitError(message);
+      if (error instanceof ApiError && error.code === "GNE_E0301") {
+        setInactiveAccount(true);
+      } else {
+        const message = error instanceof Error ? error.message : "Login failed";
+        setSubmitError(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -89,6 +97,18 @@ export default function LoginPage() {
             />
             {errors.password ? <p className="text-sm text-destructive">{errors.password.message}</p> : null}
           </div>
+
+          {inactiveAccount ? (
+            <div className="space-y-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-3 text-sm text-foreground" role="alert">
+              <p>This staff account is currently inactive. Please contact the clinic to restore access.</p>
+              {supportPhone || supportEmail ? (
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {supportPhone ? <a className="font-medium text-primary underline-offset-4 hover:underline" href={`tel:${supportPhone}`}>Call {supportPhone}</a> : null}
+                  {supportEmail ? <a className="font-medium text-primary underline-offset-4 hover:underline" href={`mailto:${supportEmail}`}>Email {supportEmail}</a> : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {submitError ? (
             <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">

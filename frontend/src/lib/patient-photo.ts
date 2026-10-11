@@ -125,17 +125,51 @@ export async function preparePatientPhoto(file: File): Promise<File> {
   return encodeWithImageElement(file);
 }
 
-export async function createPatientPhotoFromVideo(video: HTMLVideoElement): Promise<File> {
-  const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(video.videoWidth, video.videoHeight));
+export function getVideoCaptureCrop(
+  videoWidth: number,
+  videoHeight: number,
+  displayWidth: number,
+  displayHeight: number
+) {
+  const displayAspectRatio = displayWidth / displayHeight;
+  const videoAspectRatio = videoWidth / videoHeight;
+  if (videoAspectRatio > displayAspectRatio) {
+    const width = videoHeight * displayAspectRatio;
+    return { x: (videoWidth - width) / 2, y: 0, width, height: videoHeight };
+  }
+  const height = videoWidth / displayAspectRatio;
+  return { x: 0, y: (videoHeight - height) / 2, width: videoWidth, height };
+}
+
+export async function createPatientPhotoFromVideo(video: HTMLVideoElement, mirror = false): Promise<File> {
+  const bounds = video.getBoundingClientRect();
+  const displayWidth = bounds.width || video.videoWidth;
+  const displayHeight = bounds.height || video.videoHeight;
+  const crop = getVideoCaptureCrop(video.videoWidth, video.videoHeight, displayWidth, displayHeight);
+  const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(crop.width, crop.height));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  canvas.width = Math.max(1, Math.round(crop.width * scale));
+  canvas.height = Math.max(1, Math.round(crop.height * scale));
   const context = canvas.getContext("2d");
   if (!context) {
     throw new Error("Unable to capture this photo. Please try again.");
   }
 
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  if (mirror) {
+    context.translate(canvas.width, 0);
+    context.scale(-1, 1);
+  }
+  context.drawImage(
+    video,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
   const blob = await canvasToJpeg(canvas);
   if (blob.size > MAX_PATIENT_PHOTO_SIZE) {
     throw new Error("Photo is too large. Please retake it.");

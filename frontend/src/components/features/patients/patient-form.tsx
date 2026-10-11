@@ -11,9 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { GhCardNumberInput, NhisNumberInput } from "@/components/ui/patient-identifier-inputs";
+import { LocationCombobox } from "@/components/ui/location-combobox";
+import { cn } from "@/lib/utils";
 import { calculateAge } from "@/lib/dates";
 import { sanitizePhoneNumber } from "@/lib/phone";
+import { usePatientLocationCache } from "@/lib/patient-location-cache";
 import { preparePatientPhoto, validatePatientPhoto } from "@/lib/patient-photo";
+import {
+  GHANA_REGIONS,
+  getAreaSuggestions,
+  getDistrictSuggestions,
+  getTownSuggestions,
+} from "@/lib/ghana-locations";
 
 const PatientPhotoCamera = dynamic(() => import("./patient-photo-camera"), { ssr: false });
 
@@ -45,6 +54,17 @@ const EMPTY_FORM: PatientFormValues = {
   maritalStatus: "",
 };
 
+const NEW_PATIENT_DEFAULTS: PatientFormValues = {
+  ...EMPTY_FORM,
+  region: "Central Region",
+  district: "Asikuma-Odoben-Brakwa",
+  town: "Odoben",
+};
+
+function RequiredMark() {
+  return <span aria-hidden="true" className="ml-1 text-destructive">*</span>;
+}
+
 export function PatientForm({
   initialValues,
   onSubmit,
@@ -53,6 +73,7 @@ export function PatientForm({
   enablePhoto = false,
   photoError,
   onPhotoChange,
+  className,
 }: {
   initialValues?: Partial<PatientFormValues>;
   onSubmit: (values: PatientFormValues, photo: File | null) => Promise<boolean | void> | boolean | void;
@@ -61,12 +82,14 @@ export function PatientForm({
   enablePhoto?: boolean;
   photoError?: string | null;
   onPhotoChange?: () => void;
+  className?: string;
 }) {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [localPhotoError, setLocalPhotoError] = useState<string | null>(null);
   const [isPreparingPhoto, setIsPreparingPhoto] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const { locations: savedLocations, status: locationSyncStatus } = usePatientLocationCache();
   const cameraAvailable = useSyncExternalStore(
     subscribeToCameraAvailability,
     getCameraAvailabilitySnapshot,
@@ -77,7 +100,7 @@ export function PatientForm({
 
   const form = useForm<PatientFormValues>({
     defaultValues: {
-      ...EMPTY_FORM,
+      ...(initialValues ? EMPTY_FORM : NEW_PATIENT_DEFAULTS),
       ...initialValues,
       phone: sanitizePhoneNumber(initialValues?.phone ?? EMPTY_FORM.phone ?? ""),
     },
@@ -111,6 +134,12 @@ export function PatientForm({
 
   const dateOfBirth = useWatch({ control: form.control, name: "dateOfBirth" });
   const ageValue = useWatch({ control: form.control, name: "age" });
+  const regionValue = useWatch({ control: form.control, name: "region" });
+  const districtValue = useWatch({ control: form.control, name: "district" });
+  const townValue = useWatch({ control: form.control, name: "town" });
+  const districtSuggestions = getDistrictSuggestions(savedLocations, regionValue ?? "");
+  const townSuggestions = getTownSuggestions(savedLocations, regionValue ?? "", districtValue ?? "");
+  const areaSuggestions = getAreaSuggestions(savedLocations, regionValue ?? "", districtValue ?? "", townValue ?? "");
 
   useEffect(() => () => {
     if (photoPreviewUrl) {
@@ -203,21 +232,31 @@ export function PatientForm({
     }, photo);
 
     if (clearOnSuccess && succeeded !== false) {
-      form.reset(EMPTY_FORM);
+      form.reset(NEW_PATIENT_DEFAULTS);
       selectPhoto(null);
     }
   };
 
   return (
-    <form onSubmit={form.handleSubmit(submit)} className="space-y-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <form
+      onSubmit={form.handleSubmit(submit)}
+      className={cn("space-y-7 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6", className)}
+    >
+      <div>
+        <h3 className="text-base font-semibold text-foreground">Personal details</h3>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          Required fields are marked with an asterisk. Date of birth or age is required.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <label htmlFor="firstName" className="text-sm font-medium text-foreground">First name</label>
+          <label htmlFor="firstName" className="text-sm font-medium text-foreground">First name<RequiredMark /></label>
           <Input id="firstName" {...form.register("firstName")} />
           {form.formState.errors.firstName ? <p className="text-sm text-destructive">{form.formState.errors.firstName.message}</p> : null}
         </div>
         <div className="space-y-2">
-          <label htmlFor="lastName" className="text-sm font-medium text-foreground">Last name</label>
+          <label htmlFor="lastName" className="text-sm font-medium text-foreground">Last name<RequiredMark /></label>
           <Input id="lastName" {...form.register("lastName")} />
           {form.formState.errors.lastName ? <p className="text-sm text-destructive">{form.formState.errors.lastName.message}</p> : null}
         </div>
@@ -225,108 +264,225 @@ export function PatientForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <label htmlFor="dateOfBirth" className="text-sm font-medium text-foreground">Date of birth</label>
-          <Input id="dateOfBirth" type="date" {...form.register("dateOfBirth")} />
+          <label htmlFor="dateOfBirth" className="text-sm font-medium text-foreground">Date of birth<RequiredMark /></label>
+          <Input
+            id="dateOfBirth"
+            type="date"
+            {...form.register("dateOfBirth", {
+              onChange: (event) => {
+                if (!event.currentTarget.value && dateOfBirth) {
+                  form.setValue("age", "");
+                }
+              },
+            })}
+          />
           {form.formState.errors.dateOfBirth ? <p className="text-sm text-destructive">{form.formState.errors.dateOfBirth.message}</p> : null}
+          <p className="text-xs text-muted-foreground">Date of birth or age is required.</p>
         </div>
         <div className="space-y-2">
-          <label htmlFor="age" className="text-sm font-medium text-foreground">Age</label>
+          <label htmlFor="age" className="text-sm font-medium text-foreground">Age<RequiredMark /></label>
           <Input id="age" type="number" min={0} max={130} placeholder="manual age" {...form.register("age")} />
-          {typeof ageValue !== "undefined" && ageValue !== "" ? <p className="text-xs text-muted-foreground">Auto-calculated age: {ageValue}</p> : null}
+          {typeof ageValue !== "undefined" && ageValue !== "" ? (
+            <p className="text-xs text-muted-foreground">
+              {dateOfBirth ? `Auto-calculated age: ${ageValue}` : "Manually entered"}
+            </p>
+          ) : <p className="text-xs text-muted-foreground">Enter a date of birth or an age.</p>}
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <label htmlFor="gender" className="text-sm font-medium text-foreground">Gender</label>
-          <select id="gender" {...form.register("gender")} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <label htmlFor="gender" className="text-sm font-medium text-foreground">Gender<RequiredMark /></label>
+          <select
+            id="gender"
+            aria-required="true"
+            aria-invalid={Boolean(form.formState.errors.gender)}
+            aria-describedby={form.formState.errors.gender ? "gender-error" : undefined}
+            {...form.register("gender")}
+            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
             <option value="">Select</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
+          {form.formState.errors.gender ? <p id="gender-error" className="text-sm text-destructive">{form.formState.errors.gender.message}</p> : null}
         </div>
         <div className="space-y-2">
-          <label htmlFor="maritalStatus" className="text-sm font-medium text-foreground">Marital status</label>
-          <select id="maritalStatus" {...form.register("maritalStatus")} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <label htmlFor="maritalStatus" className="text-sm font-medium text-foreground">Marital status<RequiredMark /></label>
+          <select
+            id="maritalStatus"
+            aria-required="true"
+            aria-invalid={Boolean(form.formState.errors.maritalStatus)}
+            aria-describedby={form.formState.errors.maritalStatus ? "maritalStatus-error" : undefined}
+            {...form.register("maritalStatus")}
+            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
             <option value="">Select</option>
             <option value="single">Single</option>
             <option value="married">Married</option>
             <option value="divorced">Divorced</option>
             <option value="widowed">Widowed</option>
           </select>
+          {form.formState.errors.maritalStatus ? (
+            <p id="maritalStatus-error" className="text-sm text-destructive">{form.formState.errors.maritalStatus.message}</p>
+          ) : null}
         </div>
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Identification</h3>
+      <section className="space-y-4 border-t border-border pt-5" aria-labelledby="patient-identification-heading">
+        <div>
+          <h3 id="patient-identification-heading" className="text-base font-semibold text-foreground">Identification</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Optional national and health-insurance identifiers.</p>
+        </div>
+        <div className="space-y-3">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="ghCardNumber" className="text-sm font-medium text-foreground">Ghana Card number</label>
+              <Controller
+                control={form.control}
+                name="ghCardNumber"
+                render={({ field }) => (
+                  <GhCardNumberInput
+                    id="ghCardNumber"
+                    inputRef={field.ref}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={() => { field.onBlur(); void form.trigger("ghCardNumber"); }}
+                    aria-invalid={Boolean(form.formState.errors.ghCardNumber)}
+                    aria-describedby={form.formState.errors.ghCardNumber ? "ghCardNumber-error" : undefined}
+                  />
+                )}
+              />
+              {form.formState.errors.ghCardNumber ? <p id="ghCardNumber-error" className="text-sm text-destructive">{form.formState.errors.ghCardNumber.message}</p> : null}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="nhisNumber" className="text-sm font-medium text-foreground">NHIS number</label>
+              <Controller
+                control={form.control}
+                name="nhisNumber"
+                render={({ field }) => (
+                  <NhisNumberInput
+                    id="nhisNumber"
+                    inputRef={field.ref}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={() => { field.onBlur(); void form.trigger("nhisNumber"); }}
+                    aria-invalid={Boolean(form.formState.errors.nhisNumber)}
+                    aria-describedby={form.formState.errors.nhisNumber ? "nhisNumber-error" : undefined}
+                  />
+                )}
+              />
+              {form.formState.errors.nhisNumber ? <p id="nhisNumber-error" className="text-sm text-destructive">{form.formState.errors.nhisNumber.message}</p> : null}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-border pt-5" aria-labelledby="patient-contact-heading">
+        <div>
+          <h3 id="patient-contact-heading" className="text-base font-semibold text-foreground">Contact &amp; location</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Add the best available contact number and area details.</p>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label htmlFor="ghCardNumber" className="text-sm font-medium text-foreground">Ghana Card number</label>
-            <Controller
-              control={form.control}
-              name="ghCardNumber"
-              render={({ field }) => (
-                <GhCardNumberInput
-                  id="ghCardNumber"
-                  inputRef={field.ref}
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={() => { field.onBlur(); void form.trigger("ghCardNumber"); }}
-                  aria-invalid={Boolean(form.formState.errors.ghCardNumber)}
-                  aria-describedby={form.formState.errors.ghCardNumber ? "ghCardNumber-error" : undefined}
-                />
-              )}
-            />
-            {form.formState.errors.ghCardNumber ? <p id="ghCardNumber-error" className="text-sm text-destructive">{form.formState.errors.ghCardNumber.message}</p> : null}
+            <label htmlFor="phone" className="text-sm font-medium text-foreground">Phone</label>
+            <PhoneInput id="phone" {...form.register("phone")} />
+            {form.formState.errors.phone ? <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p> : null}
           </div>
           <div className="space-y-2">
-            <label htmlFor="nhisNumber" className="text-sm font-medium text-foreground">NHIS number</label>
+            <label htmlFor="region" className="text-sm font-medium text-foreground">Region</label>
+            <select
+              id="region"
+              {...form.register("region", {
+                onChange: () => {
+                  form.setValue("district", "");
+                  form.setValue("town", "");
+                  form.setValue("area", "");
+                },
+              })}
+              className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Select region</option>
+              {GHANA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <label htmlFor="district" className="text-sm font-medium text-foreground">District</label>
             <Controller
               control={form.control}
-              name="nhisNumber"
+              name="district"
               render={({ field }) => (
-                <NhisNumberInput
-                  id="nhisNumber"
+                <LocationCombobox
+                  id="district"
+                  value={field.value ?? ""}
+                  options={districtSuggestions}
+                  placeholder="Type or choose a district"
+                  suggestionsLabel="Show district suggestions"
                   inputRef={field.ref}
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={() => { field.onBlur(); void form.trigger("nhisNumber"); }}
-                  aria-invalid={Boolean(form.formState.errors.nhisNumber)}
-                  aria-describedby={form.formState.errors.nhisNumber ? "nhisNumber-error" : undefined}
+                  onBlur={field.onBlur}
+                  onChange={(value) => {
+                    field.onChange(value);
+                    form.setValue("town", "");
+                    form.setValue("area", "");
+                  }}
                 />
               )}
             />
-            {form.formState.errors.nhisNumber ? <p id="nhisNumber-error" className="text-sm text-destructive">{form.formState.errors.nhisNumber.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="town" className="text-sm font-medium text-foreground">Town</label>
+            <Controller
+              control={form.control}
+              name="town"
+              render={({ field }) => (
+                <LocationCombobox
+                  id="town"
+                  value={field.value ?? ""}
+                  options={townSuggestions}
+                  placeholder="Type or choose a town"
+                  suggestionsLabel="Show town suggestions"
+                  inputRef={field.ref}
+                  onBlur={field.onBlur}
+                  onChange={(value) => {
+                    field.onChange(value);
+                    form.setValue("area", "");
+                  }}
+                />
+              )}
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="area" className="text-sm font-medium text-foreground">Area</label>
+            <Controller
+              control={form.control}
+              name="area"
+              render={({ field }) => (
+                <LocationCombobox
+                  id="area"
+                  value={field.value ?? ""}
+                  options={areaSuggestions}
+                  placeholder="Type or choose an area"
+                  suggestionsLabel="Show area suggestions"
+                  inputRef={field.ref}
+                  onBlur={field.onBlur}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="phone" className="text-sm font-medium text-foreground">Phone</label>
-          <PhoneInput id="phone" {...form.register("phone")} />
-          {form.formState.errors.phone ? <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p> : null}
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="region" className="text-sm font-medium text-foreground">Region</label>
-          <Input id="region" {...form.register("region")} />
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <label htmlFor="district" className="text-sm font-medium text-foreground">District</label>
-          <Input id="district" {...form.register("district")} />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="town" className="text-sm font-medium text-foreground">Town</label>
-          <Input id="town" {...form.register("town")} />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="area" className="text-sm font-medium text-foreground">Area</label>
-          <Input id="area" {...form.register("area")} />
-        </div>
-      </div>
+      {locationSyncStatus === "loading" ? (
+        <p className="text-xs text-muted-foreground" role="status">Refreshing saved location suggestions…</p>
+      ) : locationSyncStatus === "error" ? (
+        <p className="text-xs text-destructive" role="status">
+          Saved locations could not be refreshed. You can still type a new location.
+        </p>
+      ) : null}
 
       {enablePhoto ? (
         <section className="space-y-3 rounded-xl border border-border p-4" aria-labelledby="patient-photo-heading">
@@ -390,8 +546,8 @@ export function PatientForm({
         </section>
       ) : null}
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={form.formState.isSubmitting || isPreparingPhoto}>
+      <div className="flex justify-end border-t border-border pt-5">
+        <Button type="submit" className="min-h-11 w-full sm:w-auto" disabled={form.formState.isSubmitting || isPreparingPhoto}>
           {form.formState.isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>

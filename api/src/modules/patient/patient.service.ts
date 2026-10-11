@@ -10,7 +10,12 @@ import { CustomAppError } from "@/lib/errors/customAppError";
 import { ErrorCodes } from "@/lib/errors/errorCodes";
 import { buildPaginationMeta, parsePagination } from "@/lib/http/pagination";
 import { PaginationQuery } from "@/types/pagination.type";
-import { findPotentialDuplicate, lockPatientIdentity } from "@/modules/patient/patient.dedupe";
+import {
+  findByGovernmentId,
+  findDemographicDuplicate,
+  findPotentialDuplicate,
+  lockPatientIdentity,
+} from "@/modules/patient/patient.dedupe";
 import { writeAuditLog } from "@/lib/audit/writeAuditLog";
 import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
 import { createWithImages, type ImageFileInput } from "@/lib/storage/createWithImages";
@@ -197,7 +202,7 @@ export class PatientService {
           nhisNumber: data.nhisNumber ?? null,
         });
 
-        const duplicate = await findPotentialDuplicate(manager, {
+        const identity = {
           firstName: data.firstName,
           lastName: data.lastName,
           gender: data.gender,
@@ -206,9 +211,20 @@ export class PatientService {
           phone: data.phone,
           ghCardNumber: data.ghCardNumber ?? null,
           nhisNumber: data.nhisNumber ?? null,
-        });
+        };
+        const governmentIdDuplicate = await findByGovernmentId(manager, identity);
+        if (governmentIdDuplicate) {
+          throw new CustomAppError(
+            `An existing patient (ID: ${governmentIdDuplicate.patientId}) has the same Ghana Card or NHIS number. This number cannot be reused.`,
+            409,
+            ErrorCodes.RECORD_ALREADY_EXISTS.code,
+            ErrorCodes.RECORD_ALREADY_EXISTS.label,
+            "patient_government_id_exists"
+          );
+        }
+        const duplicate = await findDemographicDuplicate(manager, identity);
 
-        if (duplicate) {
+        if (duplicate && duplicate.patientId !== data.confirmedDuplicatePatientId) {
           throw new CustomAppError(
             `An existing patient (ID: ${duplicate.patientId}) closely matches the information provided. Please review the record before creating a new patient.`,
             409,

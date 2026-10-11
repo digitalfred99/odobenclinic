@@ -1,5 +1,30 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MAX_PATIENT_PHOTO_SIZE, resolvePatientPhotoUrl, validatePatientPhoto } from "@/lib/patient-photo";
+import {
+  getVideoCaptureCrop,
+  MAX_PATIENT_PHOTO_SIZE,
+  resolvePatientPhotoUrl,
+  validatePatientPhoto,
+} from "@/lib/patient-photo";
+
+describe("getVideoCaptureCrop", () => {
+  it("crops wide video to the camera preview aspect ratio", () => {
+    expect(getVideoCaptureCrop(1920, 1080, 4, 3)).toEqual({
+      x: 240,
+      y: 0,
+      width: 1440,
+      height: 1080,
+    });
+  });
+
+  it("crops tall video to the camera preview aspect ratio", () => {
+    expect(getVideoCaptureCrop(1080, 1920, 4, 3)).toEqual({
+      x: 0,
+      y: 555,
+      width: 1080,
+      height: 810,
+    });
+  });
+});
 
 describe("resolvePatientPhotoUrl", () => {
   afterEach(() => {

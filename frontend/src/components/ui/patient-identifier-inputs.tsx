@@ -13,17 +13,17 @@ type IdentifierInputProps = Omit<
 
 function useSetCaretAfterRender(
   inputRef: React.RefObject<HTMLInputElement | null>,
-  pendingCaret: React.MutableRefObject<number | null>,
+  pendingCaretRef: React.MutableRefObject<number | null>,
   value: string
 ) {
   React.useLayoutEffect(() => {
     const input = inputRef.current;
-    const caret = pendingCaret.current;
+    const caret = pendingCaretRef.current;
     if (input && caret !== null) {
       input.setSelectionRange(caret, caret);
-      pendingCaret.current = null;
+      pendingCaretRef.current = null;
     }
-  }, [inputRef, pendingCaret, value]);
+  }, [inputRef, pendingCaretRef, value]);
 }
 
 function setInputRef(

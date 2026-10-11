@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { Check, Plus, Search, X } from "lucide-react";
+import { Check, Eye, EyeOff, Plus, Search, X } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,22 @@ type UserConfirmation = {
   targetUser: ClinicUser;
 };
 
+function FieldLabel({
+  htmlFor,
+  required = false,
+  children,
+}: {
+  htmlFor: string;
+  required?: boolean;
+  children: string;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
+      {children}{required ? <><span aria-hidden="true" className="ml-1 text-destructive">*</span><span className="sr-only"> (required)</span></> : null}
+    </label>
+  );
+}
+
 export default function UsersPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
@@ -42,6 +58,8 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<UserConfirmation | null>(null);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const debouncedSearch = useDebouncedValue(search);
 
   const queryParams = useMemo(() => {
@@ -66,6 +84,20 @@ export default function UsersPage() {
     event.preventDefault();
     setSuccess(null);
     setError(null);
+    setPasswordError(null);
+
+    if (formState.password && (
+      formState.password.length < 8
+      || !/\d/.test(formState.password)
+      || !/[^A-Za-z0-9]/.test(formState.password)
+    )) {
+      setPasswordError("Use at least 8 characters, including one number and one special character.");
+      return;
+    }
+    if (!editingUserId && !formState.password) {
+      setPasswordError("A password is required when creating a user.");
+      return;
+    }
 
     try {
       const payload = {
@@ -116,6 +148,8 @@ export default function UsersPage() {
       password: "",
       role: targetUser.role,
     });
+    setIsPasswordVisible(false);
+    setPasswordError(null);
     setSuccess(null);
     setError(null);
   };
@@ -123,6 +157,8 @@ export default function UsersPage() {
   const cancelEdit = () => {
     setEditingUserId(null);
     setFormState(EMPTY_FORM);
+    setIsPasswordVisible(false);
+    setPasswordError(null);
   };
 
   const confirmUserAction = async () => {
@@ -191,34 +227,67 @@ export default function UsersPage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">First name</label>
-              <Input value={formState.firstName} onChange={(event) => setFormState((current) => ({ ...current, firstName: event.target.value }))} />
+              <FieldLabel htmlFor="user-first-name" required>First name</FieldLabel>
+              <Input id="user-first-name" required value={formState.firstName} onChange={(event) => setFormState((current) => ({ ...current, firstName: event.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Last name</label>
-              <Input value={formState.lastName} onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))} />
+              <FieldLabel htmlFor="user-last-name" required>Last name</FieldLabel>
+              <Input id="user-last-name" required value={formState.lastName} onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Phone</label>
+              <FieldLabel htmlFor="user-phone" required={!editingUserId}>Phone</FieldLabel>
               <PhoneInput
+                id="user-phone"
                 value={formState.phone}
                 required={!editingUserId}
                 onChange={(event) => setFormState((current) => ({ ...current, phone: event.target.value }))}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Email</label>
-              <Input type="email" value={formState.email} onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))} />
+              <FieldLabel htmlFor="user-email">Email</FieldLabel>
+              <Input id="user-email" type="email" value={formState.email} onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label htmlFor="user-password" className="text-sm font-medium text-foreground">Password</label>
-              <Input id="user-password" type="password" autoComplete="new-password" value={formState.password} onChange={(event) => setFormState((current) => ({ ...current, password: event.target.value }))} />
+              <FieldLabel htmlFor="user-password" required={!editingUserId}>Password</FieldLabel>
+              <div className="relative">
+                <Input
+                  id="user-password"
+                  type={isPasswordVisible ? "text" : "password"}
+                  autoComplete="new-password"
+                  required={!editingUserId}
+                  aria-describedby="user-password-hint"
+                  aria-invalid={Boolean(passwordError)}
+                  placeholder={editingUserId ? "Leave blank to keep current password" : "Create a secure password"}
+                  value={formState.password}
+                  onChange={(event) => {
+                    setFormState((current) => ({ ...current, password: event.target.value }));
+                    setPasswordError(null);
+                  }}
+                  className="pr-12"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                  aria-pressed={isPasswordVisible}
+                  onClick={() => setIsPasswordVisible((visible) => !visible)}
+                >
+                  {isPasswordVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                </button>
+              </div>
+              <p id="user-password-hint" className="text-xs text-muted-foreground">
+                {editingUserId ? "Optional. " : ""}At least 8 characters, one number, and one special character.
+              </p>
+              {passwordError ? <p className="text-sm text-destructive" role="alert">{passwordError}</p> : null}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Role</label>
+              <FieldLabel htmlFor="user-role" required={!editingUserId}>Role</FieldLabel>
               <select
+                id="user-role"
                 value={formState.role}
                 onChange={(event) => setFormState((current) => ({ ...current, role: event.target.value as "admin" | "receptionist" }))}
+                required={!editingUserId}
+                disabled={Boolean(editingUserId)}
                 className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
               >
                 {isSuperAdmin ? <option value="admin">Admin</option> : null}

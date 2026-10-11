@@ -80,4 +80,21 @@ describe("PatientSearchList filters", () => {
     });
     expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
   });
+
+  it("shows the patient's town and area on the search result card", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      patients: [{
+        id: "patient-1",
+        firstName: "Ama",
+        lastName: "Mensah",
+        patientId: "PT-12/2026",
+        town: "Odoben",
+        area: "Awendadze",
+      }],
+    });
+
+    renderPatientSearch();
+
+    expect(await screen.findByText("PT-12/2026 • Odoben • Awendadze")).toBeInTheDocument();
+  });
 });

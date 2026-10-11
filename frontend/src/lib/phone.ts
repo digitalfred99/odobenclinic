@@ -1,7 +1,11 @@
 export function sanitizePhoneNumber(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 10);
+  const digits = value.replace(/\D/g, "");
+  if (digits.length > 0 && digits[0] !== "0") {
+    return "";
+  }
+  return digits.slice(0, 10);
 }
 
 export function isTenDigitPhoneNumber(value: string): boolean {
-  return /^\d{10}$/.test(value);
+  return /^0\d{9}$/.test(value);
 }
