@@ -77,14 +77,17 @@ describe("PatientForm defaults and guidance", () => {
     expect(district).toHaveValue("Agona West");
   });
 
-  it("rejects phone input unless the first digit is zero", () => {
+  it("rejects a nonzero first digit and explains the required format inline", () => {
     render(<PatientForm onSubmit={vi.fn()} />);
 
     const phone = screen.getByLabelText("Phone");
     fireEvent.change(phone, { target: { value: "1" } });
     expect(phone).toHaveValue("");
+    expect(screen.getByText("Phone numbers must start with 0.")).toBeInTheDocument();
 
-    fireEvent.change(phone, { target: { value: "0241234567" } });
-    expect(phone).toHaveValue("0241234567");
+    const validPhone = "0".repeat(10);
+    fireEvent.change(phone, { target: { value: validPhone } });
+    expect(phone).toHaveValue(validPhone);
+    expect(screen.queryByText("Phone numbers must start with 0.")).not.toBeInTheDocument();
   });
 });

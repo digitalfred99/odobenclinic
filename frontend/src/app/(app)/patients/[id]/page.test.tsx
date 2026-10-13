@@ -48,7 +48,7 @@ describe("PatientDetailPage", () => {
       patientId: "PT-12/2026",
       dateOfBirth: "1990-04-15",
       age: 36,
-      phone: "0241234567",
+      phone: "0".repeat(10),
       ghCardNumber: "GHA-123456789-0",
       nhisNumber: "56738945",
       gender: "female",

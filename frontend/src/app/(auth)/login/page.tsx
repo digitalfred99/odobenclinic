@@ -2,30 +2,41 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Input } from "@/components/ui/input";
-import { isTenDigitPhoneNumber } from "@/lib/phone";
-import { ApiError } from "@/lib/api";
-import { supportEmail, supportPhone } from "@/lib/support-contact";
+import { getPhoneNumberError } from "@/lib/phone";
+import { consumeSignInNotice } from "@/lib/session";
 
 const loginSchema = z.object({
-  phone: z.string().min(1, "Phone number is required").refine(isTenDigitPhoneNumber, "Phone number must be exactly 10 digits"),
+  phone: z.string().superRefine((phone, context) => {
+    const error = getPhoneNumberError(phone, true);
+    if (error) {
+      context.addIssue({ code: "custom", message: error });
+    }
+  }),
   password: z.string().min(1, "Password is required"),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+const GENERIC_LOGIN_ERROR = "Incorrect phone number or password.";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [inactiveAccount, setInactiveAccount] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signInNotice, setSignInNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Read the one-time notice after hydration to avoid server/client markup differences.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSignInNotice(consumeSignInNotice());
+  }, []);
 
   const {
     register,
@@ -41,19 +52,13 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     setSubmitError(null);
-    setInactiveAccount(false);
     setIsSubmitting(true);
 
     try {
       await login(values.phone, values.password);
       router.replace("/dashboard");
-    } catch (error) {
-      if (error instanceof ApiError && error.code === "GNE_E0301") {
-        setInactiveAccount(true);
-      } else {
-        const message = error instanceof Error ? error.message : "Login failed";
-        setSubmitError(message);
-      }
+    } catch {
+      setSubmitError(GENERIC_LOGIN_ERROR);
     } finally {
       setIsSubmitting(false);
     }
@@ -68,6 +73,12 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-muted-foreground">Sign in to manage patients and OPD visits.</p>
         </div>
 
+        {signInNotice ? (
+          <p role="status" className="mb-5 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+            {signInNotice}
+          </p>
+        ) : null}
+
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="space-y-2">
             <label htmlFor="phone" className="text-sm font-medium text-foreground">
@@ -76,11 +87,11 @@ export default function LoginPage() {
             <PhoneInput
               id="phone"
               autoComplete="username"
-              placeholder="Enter phone number"
+              required
+              error={errors.phone?.message}
               aria-invalid={Boolean(errors.phone)}
               {...register("phone")}
             />
-            {errors.phone ? <p className="text-sm text-destructive">{errors.phone.message}</p> : null}
           </div>
 
           <div className="space-y-2">
@@ -98,20 +109,8 @@ export default function LoginPage() {
             {errors.password ? <p className="text-sm text-destructive">{errors.password.message}</p> : null}
           </div>
 
-          {inactiveAccount ? (
-            <div className="space-y-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-3 text-sm text-foreground" role="alert">
-              <p>This staff account is currently inactive. Please contact the clinic to restore access.</p>
-              {supportPhone || supportEmail ? (
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {supportPhone ? <a className="font-medium text-primary underline-offset-4 hover:underline" href={`tel:${supportPhone}`}>Call {supportPhone}</a> : null}
-                  {supportEmail ? <a className="font-medium text-primary underline-offset-4 hover:underline" href={`mailto:${supportEmail}`}>Email {supportEmail}</a> : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
           {submitError ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {submitError}
             </div>
           ) : null}

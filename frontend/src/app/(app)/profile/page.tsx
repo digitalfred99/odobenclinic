@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { sanitizePhoneNumber } from "@/lib/phone";
+import { getPhoneNumberError, sanitizePhoneNumber } from "@/lib/phone";
 import { displayRoleLabel } from "@/types/auth";
 
 function buildProfileForm(profile?: { firstName?: string; lastName?: string; phone?: string | null; email?: string | null } | null) {
@@ -16,7 +17,6 @@ function buildProfileForm(profile?: { firstName?: string; lastName?: string; pho
     lastName: profile?.lastName ?? "",
     phone: sanitizePhoneNumber(profile?.phone ?? ""),
     email: profile?.email ?? "",
-    password: "",
   };
 }
 
@@ -25,11 +25,19 @@ export default function ProfilePage() {
   const [formState, setFormState] = useState(() => buildProfileForm(user));
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSuccess(null);
     setError(null);
+    const phoneValidationError = getPhoneNumberError(formState.phone);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      return;
+    }
+    setPhoneError(null);
 
     if (!user?.id) {
       return;
@@ -43,12 +51,10 @@ export default function ProfilePage() {
           lastName: formState.lastName.trim(),
           phone: formState.phone.trim() || undefined,
           email: formState.email.trim() || undefined,
-          password: formState.password || undefined,
         }),
       });
 
       setSuccess("Profile updated successfully.");
-      setFormState((current) => ({ ...current, password: "" }));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to update profile.";
       setError(message);
@@ -71,6 +77,9 @@ export default function ProfilePage() {
             <h3 className="text-xl font-semibold text-foreground">{user?.firstName} {user?.lastName}</h3>
             <p className="text-sm text-muted-foreground">{displayRoleLabel(user?.role)}</p>
           </div>
+          <Button type="button" variant="secondary" onClick={() => setChangePasswordOpen(true)}>
+            Change password
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -83,23 +92,28 @@ export default function ProfilePage() {
             <Input value={formState.lastName} onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))} />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Phone</label>
-            <PhoneInput value={formState.phone} onChange={(event) => setFormState((current) => ({ ...current, phone: event.target.value }))} />
+            <label htmlFor="profile-phone" className="text-sm font-medium text-foreground">Phone</label>
+            <PhoneInput
+              id="profile-phone"
+              value={formState.phone}
+              error={phoneError ?? undefined}
+              aria-invalid={Boolean(phoneError)}
+              onChange={(event) => {
+                setFormState((current) => ({ ...current, phone: event.target.value }));
+                setPhoneError(null);
+              }}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Email</label>
             <Input type="email" value={formState.email} onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))} />
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="profile-new-password" className="text-sm font-medium text-foreground">New password</label>
-            <Input id="profile-new-password" type="password" autoComplete="new-password" value={formState.password} onChange={(event) => setFormState((current) => ({ ...current, password: event.target.value }))} placeholder="Leave blank to keep the current password" />
-          </div>
-
           <div className="md:col-span-2 flex justify-end">
             <Button type="submit">Save profile</Button>
           </div>
         </form>
       </div>
+      <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </div>
   );
 }

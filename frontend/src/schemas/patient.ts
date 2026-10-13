@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isTenDigitPhoneNumber } from "@/lib/phone";
+import { getPhoneNumberError } from "@/lib/phone";
 import { getDateOfBirthError } from "@/lib/dates";
 
 export type PatientFormValues = {
@@ -29,10 +29,12 @@ export const patientFormSchema = z
       z.string().trim().regex(/^\d+$/, "Age must be a whole number").transform(Number)
         .pipe(z.number().int().min(0, "Age must be at least 0").max(130, "Age must be 130 or less")),
     ]).optional(),
-    phone: z.string().trim().refine(
-      (phone) => phone === "" || isTenDigitPhoneNumber(phone),
-      "Phone number must start with 0 and contain exactly 10 digits"
-    ).optional().or(z.literal("")),
+    phone: z.string().trim().superRefine((phone, context) => {
+      const error = getPhoneNumberError(phone);
+      if (error) {
+        context.addIssue({ code: "custom", message: error });
+      }
+    }).optional().or(z.literal("")),
     ghCardNumber: z.string().optional().or(z.literal("")).refine(
       (value) => !value || /^GHA-\d{9}-\d$/.test(value),
       "Enter a valid Ghana Card number in the format GHA-XXXXXXXXX-X."

@@ -35,6 +35,9 @@ export class User extends AppBaseEntity {
   @Column({ type: "boolean", default: true })
   isActive!: boolean;
 
+  @Column({ type: "int", default: 0 })
+  tokenVersion!: number;
+
   @OneToMany(() => AuditLog, (log) => log.actor)
   auditLogs!: Relation<AuditLog[]>;
 }

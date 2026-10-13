@@ -39,7 +39,7 @@ describe("OPDVisitRegistrationPage", () => {
       firstName: "Ama",
       lastName: "Mensah",
       patientId: "PT-12/2026",
-      phone: "0241234567",
+      phone: "0".repeat(10),
       town: "Odoben",
       area: "Awendadze",
     };

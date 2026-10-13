@@ -3,10 +3,11 @@ import { verifyAccessToken, AccessTokenPayload } from "@/lib/jwt";
 import { CustomAppError } from "@/lib/errors/customAppError";
 import { ErrorCodes } from "@/lib/errors/errorCodes";
 import { handleError } from "@/lib/errors/globalError";
-import type { UserRole } from "@/database/entities/User";
+import { AppDataSource } from "@/database/data-source";
+import { User, type UserRole } from "@/database/entities/User";
 
 export interface AuthedRequest extends NextRequest {
-  user: AccessTokenPayload; // { sub: userId, role, type: "access" }
+  user: AccessTokenPayload; // { sub, role, type: "access", tv }
 }
 
 export type AuthedHandler = (
@@ -48,12 +49,32 @@ export function withAuth(handler: AuthedHandler, options: WithAuthOptions = {}) 
         );
       }
 
+      // Load the user on every request so deletion, deactivation, role
+      // changes and password changes take effect immediately instead of
+      // waiting for the access token to expire.
+      const db = await AppDataSource();
+      const user = await db.getRepository(User).findOne({
+        where: { id: payload.sub, isDeleted: false, isActive: true },
+        select: { id: true, role: true, tokenVersion: true },
+      });
+
+      if (!user || (payload.tv ?? 0) !== user.tokenVersion) {
+        throw new CustomAppError(
+          "This session is no longer valid",
+          401,
+          ErrorCodes.UNAUTHORIZED_ACCESS.code,
+          ErrorCodes.UNAUTHORIZED_ACCESS.label,
+          "unauthorized"
+        );
+      }
+
       if (options.requireRole) {
         const allowedRoles = Array.isArray(options.requireRole)
           ? options.requireRole
           : [options.requireRole];
 
-        if (!allowedRoles.includes(payload.role)) {
+        // Role comes from the DB, not the token, so demotions apply immediately.
+        if (!allowedRoles.includes(user.role)) {
           throw new CustomAppError(
             "You do not have permission to perform this action",
             403,
@@ -65,7 +86,7 @@ export function withAuth(handler: AuthedHandler, options: WithAuthOptions = {}) 
       }
 
       const authedReq = req as AuthedRequest;
-      authedReq.user = payload;
+      authedReq.user = { ...payload, role: user.role };
 
       return await handler(authedReq, context);
     } catch (error) {

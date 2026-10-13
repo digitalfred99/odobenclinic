@@ -1,9 +1,13 @@
 import { AuthService } from "@/modules/auth/auth.service";
-import type { LoginDTO, RefreshDTO } from "@/types/auth.type";
+import type { ChangePasswordDTO, LoginDTO, RefreshDTO } from "@/types/auth.type";
 
 type RequestMeta = { ipAddress?: string; userAgent?: string };
 
 export class AuthController {
+  static async changePassword(userId: string, data: ChangePasswordDTO, requestMeta?: RequestMeta) {
+    return await AuthService.changePassword(userId, data, requestMeta);
+  }
+
   static async login(data: LoginDTO, requestMeta?: RequestMeta) {
     return await AuthService.login(data, requestMeta);
   }

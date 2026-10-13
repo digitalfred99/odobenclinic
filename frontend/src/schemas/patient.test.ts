@@ -12,7 +12,7 @@ describe("patient form validation", () => {
     expect(patientFormSchema.safeParse({
       ...minimumPatient,
       age: "34",
-      phone: "0241234567",
+      phone: "0".repeat(10),
       maritalStatus: "single",
     }).success).toBe(true);
   });
@@ -27,12 +27,34 @@ describe("patient form validation", () => {
     const result = patientFormSchema.safeParse({
       ...minimumPatient,
       age: "34",
-      phone: "1241234567",
+      phone: "1".repeat(10),
     });
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.message.includes("start with 0"))).toBe(true);
+      expect(result.error.issues.some((issue) => issue.message === "Phone numbers must start with 0.")).toBe(true);
+    }
+  });
+
+  it("uses shared length and numeric phone validation messages", () => {
+    const tooShort = patientFormSchema.safeParse({
+      ...minimumPatient,
+      age: "34",
+      phone: "0".repeat(9),
+      maritalStatus: "single",
+    });
+    const nonNumeric = patientFormSchema.safeParse({
+      ...minimumPatient,
+      age: "34",
+      phone: "0abcdefghi",
+      maritalStatus: "single",
+    });
+
+    expect(tooShort.success).toBe(false);
+    expect(nonNumeric.success).toBe(false);
+    if (!tooShort.success && !nonNumeric.success) {
+      expect(tooShort.error.issues.some((issue) => issue.message === "Phone numbers must be 10 digits.")).toBe(true);
+      expect(nonNumeric.error.issues.some((issue) => issue.message === "Phone numbers must contain digits only.")).toBe(true);
     }
   });
 

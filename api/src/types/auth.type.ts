@@ -6,3 +6,9 @@ export type LoginDTO = {
   password: string;
 };
 export type RefreshDTO = { refreshToken: string };
+
+// ── Password ───────────────────────────────────────────────────
+export type ChangePasswordDTO = {
+  currentPassword: string;
+  newPassword: string;
+};

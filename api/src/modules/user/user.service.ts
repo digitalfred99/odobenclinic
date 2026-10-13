@@ -224,6 +224,19 @@ export class UserService {
 
       this.assertCanManageTarget(actor, existingUser);
 
+      // Changing your own password must go through AuthService.changePassword,
+      // which verifies the current password. Allowing it here would let a
+      // stolen access token set a new password without knowing the old one.
+      if (safeData.password && actor.id === existingUser.id) {
+        throw new CustomAppError(
+          "Use the change-password endpoint to change your own password",
+          403,
+          ErrorCodes.PERMISSION_DENIED.code,
+          ErrorCodes.PERMISSION_DENIED.label,
+          "use_change_password"
+        );
+      }
+
       if (safeData.phone && safeData.phone !== existingUser.phone) {
         const phoneTaken = await repo.findOne({ where: { phone: safeData.phone, isDeleted: false } });
         if (phoneTaken && phoneTaken.id !== existingUser.id) {
@@ -235,6 +248,7 @@ export class UserService {
       const patch: Partial<User> = { ...rest };
       if (password) {
         patch.passwordHash = await bcrypt.hash(password, 10);
+        patch.tokenVersion = existingUser.tokenVersion + 1;
       }
 
       const updatedUser = repo.merge(existingUser, patch);
@@ -246,7 +260,12 @@ export class UserService {
       // rather than inventing a new logging mechanism.
       if (password) {
         await writeAuditLog(
-          { actorUserId: actor.id, action: AuditAction.PASSWORD_CHANGED, entityType: AuditEntityType.USER, entityId: savedUser.id },
+          {
+            actorUserId: actor.id,
+            action: actor.id === savedUser.id ? AuditAction.PASSWORD_CHANGED : AuditAction.PASSWORD_RESET_BY_ADMIN,
+            entityType: AuditEntityType.USER,
+            entityId: savedUser.id,
+          },
           manager
         );
       }
@@ -405,7 +424,7 @@ export class UserService {
         const blocked = records.filter((r) => ADMIN_TIER_ROLES.has(r.role) && r.id !== actor.id);
         if (blocked.length > 0) {
           throw new CustomAppError(
-            "Only a super admin can delete an admin or super admin account",
+            "You don't have permission to perform this operation",
             403,
             ErrorCodes.PERMISSION_DENIED.code,
             ErrorCodes.PERMISSION_DENIED.label,

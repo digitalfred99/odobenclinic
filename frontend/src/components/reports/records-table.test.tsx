@@ -45,7 +45,7 @@ describe("patient report records", () => {
       return {
         rows: [
           { patientId: "PT-1/2026", name: "Ama Mensah", age: 30, gender: "female", area: null, date: "2026-10-04", dateOfBirth: null, phone: null, ghCardNumber: null, nhisNumber: null },
-          { patientId: "PT-2/2026", name: "Kojo Mensah", age: 32, gender: "male", area: "Osu", date: "2026-10-04", dateOfBirth: "1994-01-01", phone: "0241234567", ghCardNumber: "GHA-123456789-0", nhisNumber: "NHIS-1" },
+          { patientId: "PT-2/2026", name: "Kojo Mensah", age: 32, gender: "male", area: "Osu", date: "2026-10-04", dateOfBirth: "1994-01-01", phone: "0".repeat(10), ghCardNumber: "GHA-123456789-0", nhisNumber: "NHIS-1" },
         ],
         total: 2,
         pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },

@@ -21,7 +21,7 @@ function patient(overrides: Partial<Patient> = {}): Patient {
     district: "Asikuma-Odoben-Brakwa",
     town: "Odoben",
     area: "Awendadze",
-    phone: "0241234567",
+    phone: "0".repeat(10),
     ...overrides,
   };
 }
@@ -40,7 +40,7 @@ describe("patient location browser cache", () => {
     vi.mocked(apiRequest)
       .mockResolvedValueOnce(patientPage([patient()], 1, 2))
       .mockResolvedValueOnce(patientPage([
-        patient({ id: "patient-2", phone: "0201234567" }),
+        patient({ id: "patient-2", phone: "0".repeat(10) }),
         patient({ id: "patient-3", area: "New Area" }),
       ], 2, 2));
 
@@ -51,7 +51,7 @@ describe("patient location browser cache", () => {
     expect(locations).toHaveLength(2);
     expect(readPatientLocationCache()).toEqual(locations);
     expect(window.localStorage.getItem("patient-location-cache-v1")).not.toContain("Ama");
-    expect(window.localStorage.getItem("patient-location-cache-v1")).not.toContain("0241234567");
+    expect(window.localStorage.getItem("patient-location-cache-v1")).not.toContain("0".repeat(10));
   });
 
   it("adds a newly saved patient location to the current browser cache", async () => {

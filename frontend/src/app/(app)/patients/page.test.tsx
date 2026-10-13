@@ -183,7 +183,7 @@ describe("PatientsPage registration actions", () => {
       patientId: "PT-12/2026",
       dateOfBirth: "1990-04-12",
       age: 36,
-      phone: "0200000101",
+      phone: "0".repeat(10),
       gender: "female" as const,
       maritalStatus: "single" as const,
     };

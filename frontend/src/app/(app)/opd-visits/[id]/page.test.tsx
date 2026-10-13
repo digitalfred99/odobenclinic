@@ -17,7 +17,7 @@ vi.mock("@/lib/api", () => ({
       patientId: "PT-12/2026",
       firstName: "Ama",
       lastName: "Mensah",
-      phone: "0241234567",
+      phone: "0".repeat(10),
       area: "Osu",
       createdAt: "2020-02-10T09:15:00.000Z",
     },

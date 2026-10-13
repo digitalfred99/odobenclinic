@@ -6,12 +6,14 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Check, Eye, EyeOff, Plus, Search, X } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/components/auth/auth-provider";
+import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { sanitizePhoneNumber } from "@/lib/phone";
+import { isStrongPassword, PASSWORD_STRENGTH_MESSAGE } from "@/lib/password";
+import { getPhoneNumberError, sanitizePhoneNumber } from "@/lib/phone";
 import type { ClinicUser, UsersListResponse } from "@/types/user";
 
 const EMPTY_FORM = {
@@ -60,6 +62,8 @@ export default function UsersPage() {
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(search);
 
   const queryParams = useMemo(() => {
@@ -85,13 +89,15 @@ export default function UsersPage() {
     setSuccess(null);
     setError(null);
     setPasswordError(null);
+    setPhoneError(null);
 
-    if (formState.password && (
-      formState.password.length < 8
-      || !/\d/.test(formState.password)
-      || !/[^A-Za-z0-9]/.test(formState.password)
-    )) {
-      setPasswordError("Use at least 8 characters, including one number and one special character.");
+    const phoneValidationError = getPhoneNumberError(formState.phone, !editingUserId);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      return;
+    }
+    if (formState.password && !isStrongPassword(formState.password)) {
+      setPasswordError(PASSWORD_STRENGTH_MESSAGE);
       return;
     }
     if (!editingUserId && !formState.password) {
@@ -105,11 +111,11 @@ export default function UsersPage() {
         lastName: formState.lastName.trim(),
         email: formState.email.trim() || undefined,
         phone: formState.phone.trim(),
-        password: formState.password,
         role: formState.role,
       };
 
       if (editingUserId) {
+        const isEditingSelf = editingUserId === user?.id;
         await apiRequest(`/users/${editingUserId}`, {
           method: "PATCH",
           body: JSON.stringify({
@@ -117,14 +123,14 @@ export default function UsersPage() {
             lastName: payload.lastName,
             phone: payload.phone,
             email: payload.email,
-            password: payload.password || undefined,
+            ...(!isEditingSelf && formState.password ? { password: formState.password } : {}),
           }),
         });
         setSuccess("User updated successfully.");
       } else {
         await apiRequest("/users", {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, password: formState.password }),
         });
         setSuccess("User created successfully.");
       }
@@ -150,6 +156,7 @@ export default function UsersPage() {
     });
     setIsPasswordVisible(false);
     setPasswordError(null);
+    setPhoneError(null);
     setSuccess(null);
     setError(null);
   };
@@ -159,6 +166,7 @@ export default function UsersPage() {
     setFormState(EMPTY_FORM);
     setIsPasswordVisible(false);
     setPasswordError(null);
+    setPhoneError(null);
   };
 
   const confirmUserAction = async () => {
@@ -205,6 +213,7 @@ export default function UsersPage() {
     : "";
   const isDeleteConfirmation = confirmation?.action === "delete";
   const isDeactivation = confirmation?.action === "status" && confirmation.targetUser.isActive;
+  const isEditingSelf = editingUserId !== null && editingUserId === user?.id;
 
   return (
     <div className="space-y-8">
@@ -240,46 +249,63 @@ export default function UsersPage() {
                 id="user-phone"
                 value={formState.phone}
                 required={!editingUserId}
-                onChange={(event) => setFormState((current) => ({ ...current, phone: event.target.value }))}
+                error={phoneError ?? undefined}
+                aria-invalid={Boolean(phoneError)}
+                onChange={(event) => {
+                  setFormState((current) => ({ ...current, phone: event.target.value }));
+                  setPhoneError(null);
+                }}
               />
             </div>
             <div className="space-y-2">
               <FieldLabel htmlFor="user-email">Email</FieldLabel>
               <Input id="user-email" type="email" value={formState.email} onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))} />
             </div>
-            <div className="space-y-2">
-              <FieldLabel htmlFor="user-password" required={!editingUserId}>Password</FieldLabel>
-              <div className="relative">
-                <Input
-                  id="user-password"
-                  type={isPasswordVisible ? "text" : "password"}
-                  autoComplete="new-password"
-                  required={!editingUserId}
-                  aria-describedby="user-password-hint"
-                  aria-invalid={Boolean(passwordError)}
-                  placeholder={editingUserId ? "Leave blank to keep current password" : "Create a secure password"}
-                  value={formState.password}
-                  onChange={(event) => {
-                    setFormState((current) => ({ ...current, password: event.target.value }));
-                    setPasswordError(null);
-                  }}
-                  className="pr-12"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
-                  aria-pressed={isPasswordVisible}
-                  onClick={() => setIsPasswordVisible((visible) => !visible)}
-                >
-                  {isPasswordVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-                </button>
+            {isEditingSelf ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Your password is managed separately from this profile.</p>
+                <Button type="button" variant="secondary" onClick={() => setChangePasswordOpen(true)}>
+                  Change password
+                </Button>
               </div>
-              <p id="user-password-hint" className="text-xs text-muted-foreground">
-                {editingUserId ? "Optional. " : ""}At least 8 characters, one number, and one special character.
-              </p>
-              {passwordError ? <p className="text-sm text-destructive" role="alert">{passwordError}</p> : null}
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <FieldLabel htmlFor="user-password" required={!editingUserId}>
+                  {editingUserId ? "Reset user's password" : "Password"}
+                </FieldLabel>
+                <div className="relative">
+                  <Input
+                    id="user-password"
+                    type={isPasswordVisible ? "text" : "password"}
+                    autoComplete="new-password"
+                    required={!editingUserId}
+                    aria-describedby="user-password-hint"
+                    aria-invalid={Boolean(passwordError)}
+                    placeholder={editingUserId ? "Enter a new password to reset it" : "Create a secure password"}
+                    value={formState.password}
+                    onChange={(event) => {
+                      setFormState((current) => ({ ...current, password: event.target.value }));
+                      setPasswordError(null);
+                    }}
+                    className="pr-12"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                    aria-pressed={isPasswordVisible}
+                    onClick={() => setIsPasswordVisible((visible) => !visible)}
+                  >
+                    {isPasswordVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                  </button>
+                </div>
+                <p id="user-password-hint" className="text-xs text-muted-foreground">
+                  {editingUserId ? "Optional. " : ""}At least 8 characters, one number, and one special character.
+                </p>
+                {editingUserId ? <p className="text-xs text-muted-foreground">The user will be signed out of all devices.</p> : null}
+                {passwordError ? <p className="text-sm text-destructive" role="alert">{passwordError}</p> : null}
+              </div>
+            )}
             <div className="space-y-2">
               <FieldLabel htmlFor="user-role" required={!editingUserId}>Role</FieldLabel>
               <select
@@ -405,6 +431,7 @@ export default function UsersPage() {
         onConfirm={confirmUserAction}
         onError={(actionError) => handleConfirmationError(confirmation?.action ?? "delete", actionError)}
       />
+      <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </div>
   );
 }

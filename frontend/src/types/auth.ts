@@ -34,3 +34,14 @@ export type RefreshResponse = {
   accessToken: string;
   refreshToken: string;
 };
+
+export type ChangePasswordRequest = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type ChangePasswordResponse = {
+  success: true;
+  code: string;
+  message: string;
+};

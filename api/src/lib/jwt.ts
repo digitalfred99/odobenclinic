@@ -5,13 +5,13 @@ export interface AccessTokenPayload {
   sub: string; // user id
   role: UserRole;
   type: "access";
+  tv?: number; // token version; checked in withAuth
 }
 
 export interface RefreshTokenPayload {
   sub: string;
   type: "refresh";
-  // include a token version/jti here later if you want server-side
-  // revocation (needed for REFRESH_TOKEN_REUSE detection)
+  tv?: number; // token version; checked in AuthService.refresh
 }
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
@@ -25,15 +25,15 @@ if (!ACCESS_SECRET || !REFRESH_SECRET) {
   );
 }
 
-export function signAccessToken(userId: string, role: UserRole): string {
-  const payload: AccessTokenPayload = { sub: userId, role, type: "access" };
+export function signAccessToken(userId: string, role: UserRole, tokenVersion: number): string {
+  const payload: AccessTokenPayload = { sub: userId, role, type: "access", tv: tokenVersion };
   return jwt.sign(payload, ACCESS_SECRET!, {
     expiresIn: ACCESS_EXPIRES,
   } as SignOptions);
 }
 
-export function signRefreshToken(userId: string): string {
-  const payload: RefreshTokenPayload = { sub: userId, type: "refresh" };
+export function signRefreshToken(userId: string, tokenVersion: number): string {
+  const payload: RefreshTokenPayload = { sub: userId, type: "refresh", tv: tokenVersion };
   return jwt.sign(payload, REFRESH_SECRET!, {
     expiresIn: REFRESH_EXPIRES,
   } as SignOptions);

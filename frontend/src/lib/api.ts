@@ -1,5 +1,5 @@
 import { clearSession, getAccessToken, readSession, writeSession } from "@/lib/session";
-import type { AuthUser, RefreshResponse } from "@/types/auth";
+import type { AuthUser, ChangePasswordRequest, ChangePasswordResponse, RefreshResponse } from "@/types/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 
@@ -179,6 +179,13 @@ export async function loginUser(phone: string, password: string): Promise<{ user
   }, { auth: false });
 
   return data;
+}
+
+export async function changePassword(input: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+  return apiRequest<ChangePasswordResponse>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, { skipRefresh: true });
 }
 
 export async function logoutUser() {

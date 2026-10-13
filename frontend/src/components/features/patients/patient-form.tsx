@@ -386,8 +386,12 @@ export function PatientForm({
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label htmlFor="phone" className="text-sm font-medium text-foreground">Phone</label>
-            <PhoneInput id="phone" {...form.register("phone")} />
-            {form.formState.errors.phone ? <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p> : null}
+            <PhoneInput
+              id="phone"
+              error={form.formState.errors.phone?.message}
+              aria-invalid={Boolean(form.formState.errors.phone)}
+              {...form.register("phone")}
+            />
           </div>
           <div className="space-y-2">
             <label htmlFor="region" className="text-sm font-medium text-foreground">Region</label>

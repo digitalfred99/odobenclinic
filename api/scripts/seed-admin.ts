@@ -1,6 +1,4 @@
 import "dotenv/config";
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.seed.local", override: true });
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
