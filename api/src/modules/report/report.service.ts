@@ -9,6 +9,7 @@ import {
   PatientRegistrationReportRow,
   ReportDateRangeFilter,
 } from "@/types/report.type";
+import { patientFullName } from "@/utils/helpers/patients/fullName";
 
 /**
  * A patient's age at the time of a report is either the explicitly
@@ -75,7 +76,8 @@ export class ReportService {
       patientId: p.patientId,
       firstName: p.firstName,
       lastName: p.lastName,
-      name: `${p.firstName} ${p.lastName}`,
+      otherName: p.otherName ?? null,
+      name: patientFullName(p),
       dateOfBirth: p.dateOfBirth ?? null,
       age: displayAge(p),
       phone: p.phone ?? null,
@@ -130,7 +132,7 @@ export class ReportService {
 
     const rows: OPDVisitReportRow[] = visits.map((visit) => ({
       patientId: visit.patient.patientId,
-      name: `${visit.patient.firstName} ${visit.patient.lastName}`,
+      name: patientFullName(visit.patient),
       age: displayAge(visit.patient),
       gender: visit.patient.gender,
       area: visit.patient.area ?? null,

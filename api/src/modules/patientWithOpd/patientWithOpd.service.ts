@@ -17,6 +17,11 @@ import { validateCreatePatient } from "@/modules/patient/patient.validator";
 import { validateCreateOPDVisit } from "@/modules/opdVisit/opdVisit.validator";
 import { writeAuditLog } from "@/lib/audit/writeAuditLog";
 import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
+import { savePatientPhoto } from "@/utils/helpers/patients/savePatientPhoto";
+import type { ImageFileInput } from "@/lib/storage/createWithImages";
+import { applyTextCase } from "@/utils/helpers/capitalize";
+import { PATIENT_TEXT_CASE } from "../patient/patient.constants";
+import { OPD_VISIT_TEXT_CASE } from "../opdVisit/opdVisit.constants";
 
 /**
  * Registers a new patient and their first OPD visit in a single request.
@@ -28,7 +33,8 @@ import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
  * counter for patientId, audit logs for both records.
  *
  * Patient and visit are saved in ONE transaction — if either fails,
- * neither is saved.
+ * neither is saved. If a photo is supplied it is compressed and uploaded
+ * first, and deleted again if the transaction fails.
  */
 export class PatientWithOpdService {
 
@@ -71,19 +77,27 @@ export class PatientWithOpdService {
     return nextPosition;
   }
 
-  static async createPatientWithOpd(data: CreatePatientWithOpdDTO, actorUserId: string) {
+  static async createPatientWithOpd(
+    data: CreatePatientWithOpdDTO,
+    actorUserId: string,
+    image?: ImageFileInput
+  ) {
     if (!data?.patient || typeof data.patient !== "object") {
       throw new CustomAppError("patient is required", 400, ErrorCodes.ID_REQUIRED.code, ErrorCodes.ID_REQUIRED.label, "bad_request");
     }
 
     // Copy so the caller's payload isn't mutated, then validate + normalise
     // before touching the database.
-    const patientData: CreatePatientDTO = { ...data.patient };
+    const patientData: CreatePatientDTO = applyTextCase({ ...data.patient }, PATIENT_TEXT_CASE);
+
+    // Mass-assignment guard: imageUrl is only ever set from an uploaded file.
+    delete (patientData as Record<string, unknown>).imageUrl;
+
     validateCreatePatient(patientData);
     if (patientData.ghCardNumber) patientData.ghCardNumber = patientData.ghCardNumber.trim().toUpperCase();
     if (patientData.nhisNumber) patientData.nhisNumber = patientData.nhisNumber.trim();
 
-    const visitData = data.opdVisit ?? {};
+    const visitData = applyTextCase({ ...(data.opdVisit ?? {}) }, OPD_VISIT_TEXT_CASE);
 
     const db = await AppDataSource();
 
@@ -97,125 +111,135 @@ export class PatientWithOpdService {
     // Don't echo the full User entity (passwordHash) back in the response.
     const safeCreatedBy = { id: createdBy.id, firstName: createdBy.firstName, lastName: createdBy.lastName };
 
-    return db.transaction(async (manager: EntityManager) => {
-      // ── Patient ────────────────────────────────────────────────
-      await lockPatientIdentity(manager, {
-        firstName: patientData.firstName,
-        lastName: patientData.lastName,
-        dateOfBirth: patientData.dateOfBirth ?? null,
-        ghCardNumber: patientData.ghCardNumber ?? null,
-        nhisNumber: patientData.nhisNumber ?? null,
+    const persist = (imageUrl?: string) =>
+      db.transaction(async (manager: EntityManager) => {
+        // ── Patient ────────────────────────────────────────────────
+        await lockPatientIdentity(manager, {
+          firstName: patientData.firstName,
+          lastName: patientData.lastName,
+          dateOfBirth: patientData.dateOfBirth ?? null,
+          ghCardNumber: patientData.ghCardNumber ?? null,
+          nhisNumber: patientData.nhisNumber ?? null,
+        });
+
+        const identity = {
+          firstName: patientData.firstName,
+          lastName: patientData.lastName,
+          gender: patientData.gender,
+          dateOfBirth: patientData.dateOfBirth ?? null,
+          age: patientData.age ?? null,
+          phone: patientData.phone,
+          ghCardNumber: patientData.ghCardNumber ?? null,
+          nhisNumber: patientData.nhisNumber ?? null,
+        };
+        const governmentIdDuplicate = await findByGovernmentId(manager, identity);
+        if (governmentIdDuplicate) {
+          throw new CustomAppError(
+            `An existing patient (ID: ${governmentIdDuplicate.patientId}) has the same Ghana Card or NHIS number. This number cannot be reused.`,
+            409,
+            ErrorCodes.RECORD_ALREADY_EXISTS.code,
+            ErrorCodes.RECORD_ALREADY_EXISTS.label,
+            "patient_government_id_exists"
+          );
+        }
+        const duplicate = await findDemographicDuplicate(manager, identity);
+
+        if (duplicate && duplicate.patientId !== patientData.confirmedDuplicatePatientId) {
+          throw new CustomAppError(
+            `An existing patient (ID: ${duplicate.patientId}) closely matches the information provided. Please review the record before creating a new patient.`,
+            409,
+            ErrorCodes.RECORD_ALREADY_EXISTS.code,
+            ErrorCodes.RECORD_ALREADY_EXISTS.label,
+            "patient_exists"
+          );
+        }
+
+        const year = this.todayYear();
+        const positionInYear = await this.nextPositionInYear(manager, year);
+
+        const patientRepo = manager.getRepository(Patient);
+        const savedPatient = await patientRepo.save(
+          patientRepo.create({
+            patientId: `PT-${positionInYear}/${year}`,
+            year,
+            positionInYear,
+            firstName: patientData.firstName.trim(),
+            lastName: patientData.lastName.trim(),
+            phone: patientData.phone,
+            dateOfBirth: patientData.dateOfBirth,
+            age: patientData.age,
+            region: patientData.region,
+            district: patientData.district,
+            town: patientData.town,
+            area: patientData.area,
+            gender: patientData.gender,
+            maritalStatus: patientData.maritalStatus,
+            ghCardNumber: patientData.ghCardNumber,
+            nhisNumber: patientData.nhisNumber,
+            imageUrl,
+            createdBy,
+          })
+        );
+
+        await writeAuditLog(
+          {
+            actorUserId,
+            action: AuditAction.PATIENT_REGISTERED,
+            entityType: AuditEntityType.PATIENT,
+            entityId: savedPatient.id,
+            metadata: { patientId: savedPatient.patientId },
+          },
+          manager
+        );
+
+        // ── OPD visit ──────────────────────────────────────────────
+        // The validator expects the patient's id, which only exists now.
+        // A failure here still rolls back the patient insert above.
+        validateCreateOPDVisit({ ...visitData, patient: savedPatient.id });
+
+        // A patient registered a moment ago has no earlier visits, so this
+        // is always their NEW visit — no count query needed.
+        const visitRepo = manager.getRepository(OPDVisit);
+        const savedVisit = await visitRepo.save(
+          visitRepo.create({
+            date: visitData.date ?? this.todayAsDateString(),
+            remarks: visitData.remarks || undefined,
+            patient: savedPatient,
+            createdBy,
+            newReturning: NewReturning.NEW,
+          })
+        );
+
+        await writeAuditLog(
+          {
+            actorUserId,
+            action: AuditAction.OPD_VISIT_CREATED,
+            entityType: AuditEntityType.OPDVISIT,
+            entityId: savedVisit.id,
+            metadata: { patientId: savedPatient.patientId, newReturning: savedVisit.newReturning },
+          },
+          manager
+        );
+
+        return {
+          patient: { ...savedPatient, createdBy: safeCreatedBy },
+          opdVisit: {
+            id: savedVisit.id,
+            date: savedVisit.date,
+            remarks: savedVisit.remarks,
+            newReturning: savedVisit.newReturning,
+            createdAt: savedVisit.createdAt,
+            createdBy: safeCreatedBy,
+          },
+        };
       });
 
-      const identity = {
-        firstName: patientData.firstName,
-        lastName: patientData.lastName,
-        gender: patientData.gender,
-        dateOfBirth: patientData.dateOfBirth ?? null,
-        age: patientData.age ?? null,
-        phone: patientData.phone,
-        ghCardNumber: patientData.ghCardNumber ?? null,
-        nhisNumber: patientData.nhisNumber ?? null,
-      };
-      const governmentIdDuplicate = await findByGovernmentId(manager, identity);
-      if (governmentIdDuplicate) {
-        throw new CustomAppError(
-          `An existing patient (ID: ${governmentIdDuplicate.patientId}) has the same Ghana Card or NHIS number. This number cannot be reused.`,
-          409,
-          ErrorCodes.RECORD_ALREADY_EXISTS.code,
-          ErrorCodes.RECORD_ALREADY_EXISTS.label,
-          "patient_government_id_exists"
-        );
-      }
-      const duplicate = await findDemographicDuplicate(manager, identity);
+    // With a photo: compress + upload first, then save. If the transaction
+    // fails (duplicate, bad visit data, DB error) the photo is deleted again.
+    if (image) {
+      return await savePatientPhoto(image, (imageUrl) => persist(imageUrl));
+    }
 
-      if (duplicate && duplicate.patientId !== patientData.confirmedDuplicatePatientId) {
-        throw new CustomAppError(
-          `An existing patient (ID: ${duplicate.patientId}) closely matches the information provided. Please review the record before creating a new patient.`,
-          409,
-          ErrorCodes.RECORD_ALREADY_EXISTS.code,
-          ErrorCodes.RECORD_ALREADY_EXISTS.label,
-          "patient_exists"
-        );
-      }
-
-      const year = this.todayYear();
-      const positionInYear = await this.nextPositionInYear(manager, year);
-
-      const patientRepo = manager.getRepository(Patient);
-      const savedPatient = await patientRepo.save(
-        patientRepo.create({
-          patientId: `PT-${positionInYear}/${year}`,
-          year,
-          positionInYear,
-          firstName: patientData.firstName.trim(),
-          lastName: patientData.lastName.trim(),
-          phone: patientData.phone,
-          dateOfBirth: patientData.dateOfBirth,
-          age: patientData.age,
-          region: patientData.region,
-          district: patientData.district,
-          town: patientData.town,
-          area: patientData.area,
-          gender: patientData.gender,
-          maritalStatus: patientData.maritalStatus,
-          ghCardNumber: patientData.ghCardNumber,
-          nhisNumber: patientData.nhisNumber,
-          createdBy,
-        })
-      );
-
-      await writeAuditLog(
-        {
-          actorUserId,
-          action: AuditAction.PATIENT_REGISTERED,
-          entityType: AuditEntityType.PATIENT,
-          entityId: savedPatient.id,
-          metadata: { patientId: savedPatient.patientId },
-        },
-        manager
-      );
-
-      // ── OPD visit ──────────────────────────────────────────────
-      // The validator expects the patient's id, which only exists now.
-      // A failure here still rolls back the patient insert above.
-      validateCreateOPDVisit({ ...visitData, patient: savedPatient.id });
-
-      // A patient registered a moment ago has no earlier visits, so this
-      // is always their NEW visit — no count query needed.
-      const visitRepo = manager.getRepository(OPDVisit);
-      const savedVisit = await visitRepo.save(
-        visitRepo.create({
-          date: visitData.date ?? this.todayAsDateString(),
-          remarks: visitData.remarks || undefined,
-          patient: savedPatient,
-          createdBy,
-          newReturning: NewReturning.NEW,
-        })
-      );
-
-      await writeAuditLog(
-        {
-          actorUserId,
-          action: AuditAction.OPD_VISIT_CREATED,
-          entityType: AuditEntityType.OPDVISIT,
-          entityId: savedVisit.id,
-          metadata: { patientId: savedPatient.patientId, newReturning: savedVisit.newReturning },
-        },
-        manager
-      );
-
-      return {
-        patient: { ...savedPatient, createdBy: safeCreatedBy },
-        opdVisit: {
-          id: savedVisit.id,
-          date: savedVisit.date,
-          remarks: savedVisit.remarks,
-          newReturning: savedVisit.newReturning,
-          createdAt: savedVisit.createdAt,
-          createdBy: safeCreatedBy,
-        },
-      };
-    });
+    return await persist();
   }
 }

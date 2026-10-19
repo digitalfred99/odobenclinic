@@ -2,6 +2,7 @@ import { AppDataSource } from "@/database/data-source";
 import { OPDVisit, NewReturning } from "@/database/entities/OPDVisit";
 import { Patient } from "@/database/entities/Patient";
 import { ReceptionistDashboardOverview } from "@/types/dashboard.type";
+import { patientFullName } from "@/utils/helpers/patients/fullName";
 
 const RECENT_VISITS_LIMIT = 10;
 
@@ -45,7 +46,7 @@ export class DashboardService {
       recentOPDVisits: recentVisits.map((visit) => ({
         id: visit.id,
         patientId: visit.patient.patientId,
-        patientName: `${visit.patient.firstName} ${visit.patient.lastName}`,
+        patientName: patientFullName(visit.patient),
         date: visit.date,
         newReturning: visit.newReturning,
         registeredBy: `${visit.createdBy.firstName} ${visit.createdBy.lastName}`,

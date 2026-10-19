@@ -20,6 +20,9 @@ import { writeAuditLog } from "@/lib/audit/writeAuditLog";
 import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
 import { createWithImages, type ImageFileInput } from "@/lib/storage/createWithImages";
 import { getStorageAdapter } from "@/lib/storage/getStorageAdapter";
+import { savePatientPhoto } from "../../utils/helpers/patients/savePatientPhoto";
+import { applyTextCase } from "@/utils/helpers/capitalize";
+import { PATIENT_TEXT_CASE } from "./patient.constants";
 
 export class PatientService {
 
@@ -72,6 +75,7 @@ export class PatientService {
             searchQuery
               .where(`patient.firstName ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.lastName ILIKE :${parameter}`, { [parameter]: pattern })
+              .orWhere(`patient.otherName ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.phone ILIKE :${parameter}`, { [parameter]: pattern })
               // A receptionist searching by the number printed on the
               // patient's clinic card should hit this too.
@@ -180,6 +184,7 @@ export class PatientService {
   // records who logged each individual visit).
   static async create(data: CreatePatientDTO, actorUserId: string, image?: ImageFileInput) {
     validateCreatePatient(data);
+    data = applyTextCase(data, PATIENT_TEXT_CASE);
 
     if (data.ghCardNumber) data.ghCardNumber = data.ghCardNumber.trim().toUpperCase();
     if (data.nhisNumber) data.nhisNumber = data.nhisNumber.trim();
@@ -244,6 +249,7 @@ export class PatientService {
           positionInYear,
           firstName: data.firstName.trim(),
           lastName: data.lastName.trim(),
+          otherName: data.otherName?.trim(),
           phone: data.phone,
           dateOfBirth: data.dateOfBirth,
           age: data.age,
@@ -279,11 +285,7 @@ export class PatientService {
       });
 
     if (image) {
-      return await createWithImages(
-        { ...image, fieldName: "imageUrl" },
-        (urls) => persist(urls.imageUrl),
-        { folder: "patients" }
-      );
+      return await savePatientPhoto(image, (imageUrl) => persist(imageUrl));
     }
 
     return await persist();
@@ -302,6 +304,8 @@ export class PatientService {
     validateNhisNumber(data.nhisNumber);
     if (data.ghCardNumber) data.ghCardNumber = data.ghCardNumber.trim().toUpperCase();
     if (data.nhisNumber) data.nhisNumber = data.nhisNumber.trim();
+
+    data = applyTextCase(data, PATIENT_TEXT_CASE);
 
     const db = await AppDataSource();
     const replaced: { url?: string } = {}; // previous photo, deleted only after commit
@@ -386,11 +390,7 @@ export class PatientService {
 
     if (!image) return await persist();
 
-    const saved = await createWithImages(
-      { ...image, fieldName: "imageUrl" },
-      (urls) => persist(urls.imageUrl),
-      { folder: "patients" }
-    );
+    const saved = await savePatientPhoto(image, (imageUrl) => persist(imageUrl));
 
     // Committed — now it's safe to drop the old photo. A failure here only
     // orphans a file; it must never fail a request that already succeeded.

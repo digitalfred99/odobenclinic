@@ -12,6 +12,8 @@ import { Patient } from "@/database/entities/Patient";
 import { User } from "@/database/entities/User";
 import { writeAuditLog } from "@/lib/audit/writeAuditLog";
 import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
+import { applyTextCase } from "@/utils/helpers/capitalize";
+import { OPD_VISIT_TEXT_CASE } from "./opdVisit.constants";
 
 export class OPDVisitService {
 
@@ -57,6 +59,7 @@ export class OPDVisitService {
               .where(`CAST(opdVisit.date AS TEXT) ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.firstName ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.lastName ILIKE :${parameter}`, { [parameter]: pattern })
+              .orWhere(`patient.otherName ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.patientId ILIKE :${parameter}`, { [parameter]: pattern })
           })
         );
@@ -107,6 +110,8 @@ export class OPDVisitService {
 
   static async create(data: CreateOPDVisitDTO, createdById: string) {
     validateCreateOPDVisit(data);
+
+    data = applyTextCase(data, OPD_VISIT_TEXT_CASE);
 
     const db = await AppDataSource();
     const patientRepo = db.getRepository(Patient)
@@ -167,6 +172,8 @@ export class OPDVisitService {
     }
 
     validateUpdateOPDVisit(data);
+
+    data = applyTextCase(data, OPD_VISIT_TEXT_CASE);
 
     const db = await AppDataSource();
 

@@ -4,6 +4,7 @@ import type { Gender, MaritalStatus } from "@/database/entities/Patient";
 export type CreatePatientDTO = {
     firstName: string;
     lastName: string;
+    otherName?: string;
     phone?: string;
     dateOfBirth?: string;
     age?: number;
@@ -22,6 +23,7 @@ export type CreatePatientDTO = {
 export type UpdatePatientDTO = Partial<{
     firstName: string;
     lastName: string;
+    otherName: string;
     phone: string;
     dateOfBirth: string;
     age: number;

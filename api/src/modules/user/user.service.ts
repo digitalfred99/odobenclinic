@@ -13,6 +13,8 @@ import { PaginationQuery } from "@/types/pagination.type";
 
 import { writeAuditLog } from "@/lib/audit/writeAuditLog";
 import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
+import { applyTextCase } from "@/utils/helpers/capitalize";
+import { USER_TEXT_CASE } from "./user.constants";
 
 const ADMIN_TIER_ROLES: ReadonlySet<UserRole> = new Set([UserRole.ADMIN, UserRole.SUPER_ADMIN]);
 
@@ -141,7 +143,7 @@ export class UserService {
       const db = await AppDataSource();
       const repo = db.getRepository(User);
 
-      const safeData = UserSanitizer.create(data);
+      const safeData = applyTextCase(UserSanitizer.create(data), USER_TEXT_CASE);
 
       validateCreateUser(safeData); // now internally covers presence + enum + password strength
 
@@ -203,7 +205,7 @@ export class UserService {
       throw new CustomAppError("Valid User ID is required", 400, ErrorCodes.ID_REQUIRED.code, ErrorCodes.ID_REQUIRED.label, "bad_request");
     }
 
-    const safeData = UserSanitizer.update(data);
+    const safeData = applyTextCase(UserSanitizer.update(data), USER_TEXT_CASE);
     validateUserEnum(safeData);
     // A password change via PATCH must meet the same strength bar as one
     // set at account creation — the previous version only validated

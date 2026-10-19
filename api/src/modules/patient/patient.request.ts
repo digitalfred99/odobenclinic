@@ -5,9 +5,11 @@ import { ErrorCodes } from "@/lib/errors/errorCodes";
 import type { CreatePatientDTO, UpdatePatientDTO } from "@/types/patient.type";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+// 5 MB image + room for the text fields.
+const MAX_REQUEST_BYTES = 6 * 1024 * 1024;
 
 const STRING_FIELDS = [
-  "firstName", "lastName", "phone", "dateOfBirth",
+  "firstName", "lastName", "otherName", "phone", "dateOfBirth",
   "region", "district", "town", "area",
   "gender", "maritalStatus", "ghCardNumber", "nhisNumber",
   "confirmedDuplicatePatientId",
@@ -29,6 +31,19 @@ function detectImageExt(buf: Buffer): "jpg" | "png" | "webp" | null {
     buf.subarray(8, 12).toString("ascii") === "WEBP"
   ) return "webp";
   return null;
+}
+
+/** Safe replacement for req.formData(): early size check + 400 on a broken body. */
+export async function readFormData(req: Request): Promise<FormData> {
+  const contentLength = Number(req.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_REQUEST_BYTES) {
+    throw badRequest("Image must be 5 MB or smaller", "image_too_large", 413);
+  }
+  try {
+    return await req.formData();
+  } catch {
+    throw badRequest("Invalid or incomplete upload", "invalid_form_data");
+  }
 }
 
 /** Reads the optional `image` part. Returns undefined if none was sent. */
@@ -65,7 +80,7 @@ function readPatientFields(formData: FormData): Record<string, unknown> {
   return out;
 }
 
-const isMultipart = (req: Request) =>
+export const isMultipart = (req: Request) =>
   (req.headers.get("content-type") ?? "").includes("multipart/form-data");
 
 export async function parseCreatePatientRequest(req: Request) {
@@ -73,7 +88,7 @@ export async function parseCreatePatientRequest(req: Request) {
     // Backward compatible: plain JSON still works (no image).
     return { data: (await req.json()) as CreatePatientDTO, image: undefined };
   }
-  const formData = await req.formData();
+  const formData = await readFormData(req);
   return {
     data: readPatientFields(formData) as CreatePatientDTO,
     image: await extractPatientImage(formData),
@@ -84,7 +99,7 @@ export async function parseUpdatePatientRequest(req: Request) {
   if (!isMultipart(req)) {
     return { data: (await req.json()) as UpdatePatientDTO, image: undefined };
   }
-  const formData = await req.formData();
+  const formData = await readFormData(req);
   return {
     data: readPatientFields(formData) as UpdatePatientDTO, // only fields actually sent
     image: await extractPatientImage(formData),

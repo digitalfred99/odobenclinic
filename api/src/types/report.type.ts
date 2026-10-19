@@ -23,6 +23,7 @@ export type PatientRegistrationReportRow = {
   patientId: string;
   firstName: string;
   lastName: string;
+  otherName: string | null;
   name: string;
   dateOfBirth: string | null;
   age: number | null;

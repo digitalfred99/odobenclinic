@@ -62,6 +62,9 @@ export class Patient extends AppBaseEntity {
   @Column({type: "varchar", length: 255, nullable: false})
   lastName!: string;
 
+  @Column({type: "varchar", length: 255, nullable: true})
+  otherName?: string;
+
   @Column({ type: "date", nullable: true })
   dateOfBirth?: string;
 
