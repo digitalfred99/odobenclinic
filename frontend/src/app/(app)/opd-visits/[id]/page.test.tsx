@@ -18,6 +18,8 @@ vi.mock("@/lib/api", () => ({
       firstName: "Ama",
       lastName: "Mensah",
       phone: "0241234567",
+      ghCardNumber: null,
+      nhisNumber: "",
       area: "Osu",
       createdAt: "2020-02-10T09:15:00.000Z",
     },
@@ -55,6 +57,9 @@ describe("OPDVisitDetailPage", () => {
     expect(screen.getByText("Kojo Owusu")).toBeInTheDocument();
     expect(screen.getByText("Patient first registered")).toBeInTheDocument();
     expect(screen.getByText("Recorded 4 Oct 2026, 12:34 PM")).toBeInTheDocument();
+    expect(screen.getByText("Ghana Card number")).toBeInTheDocument();
+    expect(screen.getByText("NHIS number")).toBeInTheDocument();
+    expect(screen.getAllByText("N/A")).toHaveLength(2);
     expect(apiRequest).toHaveBeenCalledWith(
       "/opd-visits/visit-uuid",
       expect.objectContaining({ signal: expect.any(AbortSignal) })

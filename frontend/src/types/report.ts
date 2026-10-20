@@ -10,7 +10,7 @@ export type ReportRow = {
   district?: string | null;
   town?: string | null;
   gender: "male" | "female";
-  maritalStatus?: "single" | "married" | "divorced" | "widowed";
+  maritalStatus?: "single" | "married" | "divorced" | "widowed" | null;
   area: string | null;
   ghCardNumber?: string | null;
   nhisNumber?: string | null;

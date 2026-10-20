@@ -40,6 +40,16 @@ export function FilterSheet({ open, onOpenChange, slice, onChange, vocab }: {
                 <option value="">All</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other or unknown</option>
               </select>
             </Field>
+            <Field id="f-marital-status" label="Marital status">
+              <select id="f-marital-status" className={selectClass} value={slice.maritalStatus} onChange={(e) => set("maritalStatus", e.target.value as Slice["maritalStatus"])}>
+                <option value="">All statuses</option>
+                <option value="single">Single</option>
+                <option value="married">Married</option>
+                <option value="divorced">Divorced</option>
+                <option value="widowed">Widowed</option>
+                <option value="unknown">Not recorded</option>
+              </select>
+            </Field>
             <Field id="f-age" label="Age group">
               <select id="f-age" className={selectClass} value={slice.ageBand} onChange={(e) => set("ageBand", e.target.value)}>
                 <option value="">All ages</option>{options(AGE_BANDS.map((b) => b.label))}<option value="Unknown">Age not recorded</option>

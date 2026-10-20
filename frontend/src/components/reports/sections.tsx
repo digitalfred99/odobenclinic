@@ -8,7 +8,7 @@ import {
 } from "@/lib/reports/analytics";
 import type { findDuplicates, buildRetention } from "@/lib/reports/analytics";
 import { formatPatientDisplayId } from "@/lib/reporting";
-import type { RecordKind, Sex, Slice } from "@/lib/reports/types";
+import type { MaritalStatus, RecordKind, Sex, Slice } from "@/lib/reports/types";
 import { ChartFrame, HeatmapGrid, Pyramid, RankedBars, SplitBar, TrendChart } from "./charts";
 
 const nf = new Intl.NumberFormat("en-GH");
@@ -18,6 +18,7 @@ export type ReportModel = {
   trend: Bucket[]; ghost?: number[];
   insights: string[]; unusual: UnusualDay[];
   pyramid: PyramidRow[]; areas: Ranked[]; towns: Ranked[];
+  marital: { status: MaritalStatus; name: string; count: number; share: number }[];
   quality: Quality; duplicates: ReturnType<typeof findDuplicates>;
   heat: Heatmap; weekday: { totals: number[]; typical: number[] };
   frequency: { label: string; patients: number }[];
@@ -155,6 +156,24 @@ export function PeopleSection({ m }: { m: ReportModel }) {
           <RankedBars rows={m.towns} active={slice.town} onPick={(name) => actions.setSlice({ ...slice, town: slice.town === name ? "" : name })} />
         </ChartFrame>
       </div>
+
+      <ChartFrame
+        title="Marital status"
+        description="Patient registrations matching the other filters. Click a status to filter the report."
+        columns={["Status", "Patients", "Share"]}
+        rows={m.marital.map((row) => [row.name, row.count, `${Math.round(row.share * 100)}%`])}
+      >
+        {m.marital.length === 0 ? <Note>No patient registrations match the other filters.</Note> : (
+          <RankedBars
+            rows={m.marital}
+            active={m.marital.find((row) => row.status === slice.maritalStatus)?.name ?? ""}
+            onPick={(name) => {
+              const status = m.marital.find((row) => row.name === name)?.status;
+              if (status) actions.setSlice({ ...slice, maritalStatus: slice.maritalStatus === status ? "" : status });
+            }}
+          />
+        )}
+      </ChartFrame>
 
     </div>
   );

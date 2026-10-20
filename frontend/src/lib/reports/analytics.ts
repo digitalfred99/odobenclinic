@@ -2,7 +2,7 @@ import {
   addDays, bucketEnd, bucketLabel, bucketStart, diffDays, mondayIndex, nextBucketStart,
   type BucketSize, type PeriodPreset,
 } from "./period";
-import type { MissingKey, PatientRecord, Place, Sex, Slice, VisitRecord } from "./types";
+import type { MaritalStatus, MissingKey, PatientRecord, Place, Sex, Slice, VisitRecord } from "./types";
 
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 export const WEEKDAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -31,10 +31,11 @@ const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 /* ---------- slicing ---------- */
 
-type Demo = Place & { date: string; sex: Sex; age: number | null };
+type Demo = Place & { date: string; sex: Sex; age: number | null; maritalStatus?: MaritalStatus };
 
 function matchesDemo(r: Demo, s: Slice) {
   if (s.sex && r.sex !== s.sex) return false;
+  if (s.maritalStatus && (r.maritalStatus ?? "unknown") !== s.maritalStatus) return false;
   if (s.ageBand && ageBandOf(r.age) !== s.ageBand) return false;
   if (s.area && placeLabel(r.area) !== s.area) return false;
   if (s.town && placeLabel(r.town) !== s.town) return false;
@@ -62,6 +63,7 @@ export function matchesPatient(p: PatientRecord, s: Slice, duplicates: Set<strin
 export function describeSlice(s: Slice): { key: keyof Slice; label: string }[] {
   const out: { key: keyof Slice; label: string }[] = [];
   if (s.sex) out.push({ key: "sex", label: s.sex === "other" ? "Other or unknown sex" : cap(s.sex) });
+  if (s.maritalStatus) out.push({ key: "maritalStatus", label: `Marital status: ${s.maritalStatus === "unknown" ? "Not recorded" : cap(s.maritalStatus)}` });
   if (s.ageBand) out.push({ key: "ageBand", label: `Age ${s.ageBand}` });
   if (s.type) out.push({ key: "type", label: `${cap(s.type)} visits` });
   if (s.area) out.push({ key: "area", label: `Area: ${s.area}` });
@@ -144,6 +146,20 @@ export function buildPyramid(rows: { age: number | null; sex: Sex }[]): PyramidR
 }
 
 export type Ranked = { name: string; count: number; share: number };
+
+export function buildMaritalBreakdown(rows: PatientRecord[]) {
+  const labels: Record<MaritalStatus, string> = {
+    single: "Single", married: "Married", divorced: "Divorced", widowed: "Widowed", unknown: "Not recorded",
+  };
+  const counts = new Map<MaritalStatus, number>();
+  rows.forEach((row) => {
+    const status = row.maritalStatus ?? "unknown";
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  });
+  return [...counts.entries()]
+    .map(([status, count]) => ({ status, name: labels[status], count, share: count / (rows.length || 1) }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
 
 export function rankBy<T>(rows: T[], pick: (row: T) => string, limit = 10): Ranked[] {
   const counts = new Map<string, number>();
@@ -413,6 +429,12 @@ export function parseCommand(input: string, vocab: { areas: string[]; towns: str
   for (const [re, value, label] of PERIOD_WORDS) if (!preset && take(re)) { preset = value; summary.push(label); }
   if (take(/\b(female|females|women|woman|girls?)\b/)) { slice.sex = "female"; summary.push("Female"); }
   else if (take(/\b(male|males|men|man|boys?)\b/)) { slice.sex = "male"; summary.push("Male"); }
+  const maritalStatus = text.match(/\b(single|married|divorced|widowed)\b/);
+  if (maritalStatus) {
+    slice.maritalStatus = maritalStatus[1] as Exclude<MaritalStatus, "unknown">;
+    summary.push(`Marital status: ${cap(maritalStatus[1])}`);
+    text = text.replace(maritalStatus[0], " ");
+  }
   if (take(/\bnew\b/)) { slice.type = "new"; summary.push("New visits"); }
   else if (take(/\b(returning|repeat)\b/)) { slice.type = "returning"; summary.push("Returning visits"); }
 

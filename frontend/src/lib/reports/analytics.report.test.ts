@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findDuplicates } from "./analytics";
+import { buildMaritalBreakdown, findDuplicates } from "./analytics";
 import type { PatientRecord } from "./types";
 
 const patient = (pid: string, nameKey: string | null, phoneKey: string | null): PatientRecord => ({
@@ -32,5 +32,20 @@ describe("possible duplicate groups", () => {
       pids: ["PT-1/2026", "PT-2/2026", "PT-3/2026"],
     }]);
     expect(result.pids.size).toBe(3);
+  });
+});
+
+describe("marital status analysis", () => {
+  it("counts recorded statuses and groups missing statuses as not recorded", () => {
+    const rows = [
+      { ...patient("PT-1/2026", null, null), maritalStatus: "married" as const },
+      { ...patient("PT-2/2026", null, null), maritalStatus: "married" as const },
+      patient("PT-3/2026", null, null),
+    ];
+
+    expect(buildMaritalBreakdown(rows)).toEqual([
+      { status: "married", name: "Married", count: 2, share: 2 / 3 },
+      { status: "unknown", name: "Not recorded", count: 1, share: 1 / 3 },
+    ]);
   });
 });

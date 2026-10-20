@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
+import { formatPatientDisplayId } from "@/lib/reporting";
 import { cn } from "@/lib/utils";
 import type { PatientListResponse } from "@/types/patient";
 import { Button } from "@/components/ui/button";
@@ -213,7 +214,7 @@ export function PatientSearchList({ className }: { className?: string }) {
             <div className="min-w-0">
               <p className="font-medium text-foreground">{patient.firstName} {patient.lastName}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {patient.patientId ?? "Patient"}
+                OPD No. {patient.patientId ? formatPatientDisplayId(patient.patientId) : "unavailable"}
                 {patient.town ? ` • ${patient.town}` : ""}
                 {patient.area ? ` • ${patient.area}` : ""}
               </p>

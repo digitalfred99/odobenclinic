@@ -206,3 +206,11 @@
 - No backend changes were made. Validation: 11 focused report tests pass, including location enrichment, duplicate grouping, name search, and actionable record details; targeted ESLint, frontend TypeScript, `git diff --check`, and production build pass.
 - Follow-up: removed the Data quality report tab, consolidated refresh, filters, saved views, exports and print into a working actions menu outside any clipping scroll container, and compressed the sticky mobile controls into a single non-scrolling row. Custom date entry opens a compact dialog on phones. Validation: report page tests pass (8), targeted ESLint, frontend TypeScript and `git diff --check` pass.
 - Removed the “Areas that went quiet” comparison section from the People and places report.
+
+## Patient details and marital-status reports follow-up
+- Patient and OPD visit detail views always show Ghana Card and NHIS values, using `N/A` when absent. Patient records show the permanent number as `OPD No.` without the `PT-` prefix and include a “Last visit date” summary.
+- Patient search cards also label the number as `OPD No.` without the `PT-` prefix.
+- Added marital-status filtering across patient and OPD report analyses, a patient registration breakdown, report-table values, and OPD export fields. This filter is applied client-side because the existing report endpoints do not accept marital-status filters; linked OPD patient data supplies the status.
+- Added marital status to privacy-limited report cache records and bumped its schema. Existing saved views remain compatible and retain the new filter going forward.
+- Added a visible “Compare” label beside the comparison selector. No backend files were changed.
+- Validation: 21 focused tests pass; frontend TypeScript, targeted ESLint, `git diff --check`, and production build pass.

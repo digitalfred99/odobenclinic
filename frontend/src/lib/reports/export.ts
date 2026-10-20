@@ -27,7 +27,7 @@ export function getReportFields(kind: RecordKind): ReportFieldOption[] {
   }
   return [
     { key: "patientId", label: "OPD No." }, { key: "name", label: "Name" }, { key: "age", label: "Age" },
-    { key: "gender", label: "Gender" }, { key: "area", label: "Area" }, { key: "date", label: "Visit date" },
+    { key: "gender", label: "Gender" }, { key: "maritalStatus", label: "Marital status" }, { key: "area", label: "Area" }, { key: "date", label: "Visit date" },
     { key: "visitRecordedAt", label: "Visit recorded at" }, { key: "visitsInReport", label: "Visits in report period" },
     { key: "newReturning", label: "New/Returning" }, { key: "remarks", label: "Visit remarks" },
   ];

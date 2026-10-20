@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
-import { ArrowLeft, CalendarDays, CalendarPlus, ClipboardList, MapPin, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarPlus, ClipboardList, CreditCard, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
@@ -142,6 +142,20 @@ export default function OPDVisitDetailPage() {
                 <dd className={`${valueClassName} flex items-center gap-2`}>
                   <Phone className="h-4 w-4 text-primary" aria-hidden="true" />
                   {visit.patient.phone || "Not provided"}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelClassName}>Ghana Card number</dt>
+                <dd className={`${valueClassName} flex items-center gap-2`}>
+                  <CreditCard className="h-4 w-4 text-primary" aria-hidden="true" />
+                  {visit.patient.ghCardNumber?.trim() || "N/A"}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelClassName}>NHIS number</dt>
+                <dd className={`${valueClassName} flex items-center gap-2`}>
+                  <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+                  {visit.patient.nhisNumber?.trim() || "N/A"}
                 </dd>
               </div>
               <div>

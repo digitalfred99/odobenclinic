@@ -1,5 +1,6 @@
 export type Sex = "male" | "female" | "other";
 export type VisitType = "new" | "returning" | "unknown";
+export type MaritalStatus = "single" | "married" | "divorced" | "widowed" | "unknown";
 export type RecordKind = "visits" | "patients";
 export type MissingKey = "phone" | "dob" | "ghCard" | "nhis" | "area" | "duplicate";
 
@@ -15,6 +16,7 @@ export type VisitRecord = Place & {
   type: VisitType;
   age: number | null;
   sex: Sex;
+  maritalStatus?: MaritalStatus;
   at: string | null; // when the visit was recorded, used for the busy-hours chart
 };
 
@@ -24,6 +26,7 @@ export type PatientRecord = Place & {
   date: string; // date registered, yyyy-MM-dd
   age: number | null;
   sex: Sex;
+  maritalStatus?: MaritalStatus;
   hasPhone: boolean;
   hasDob: boolean;
   hasGhCard: boolean;
@@ -34,6 +37,7 @@ export type PatientRecord = Place & {
 
 export type Slice = {
   sex: Sex | "";
+  maritalStatus: MaritalStatus | "";
   ageBand: string;
   type: VisitType | "";
   area: string;
@@ -46,6 +50,7 @@ export type Slice = {
 
 export const EMPTY_SLICE: Slice = {
   sex: "",
+  maritalStatus: "",
   ageBand: "",
   type: "",
   area: "",
