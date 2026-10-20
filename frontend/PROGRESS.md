@@ -207,15 +207,10 @@
 - Follow-up: removed the Data quality report tab, consolidated refresh, filters, saved views, exports and print into a working actions menu outside any clipping scroll container, and compressed the sticky mobile controls into a single non-scrolling row. Custom date entry opens a compact dialog on phones. Validation: report page tests pass (8), targeted ESLint, frontend TypeScript and `git diff --check` pass.
 - Removed the “Areas that went quiet” comparison section from the People and places report.
 
-## Password management follow-up
-- Removed password editing from the self-profile form and ensured its PATCH payload never includes a password.
-- Added a shared change-password dialog to the profile page and the user editor when editing the signed-in user's own account. It validates required fields, confirmation, password strength and current/new inequality; maps wrong-current-password and same-password errors inline; and bypasses automatic refresh for this endpoint's 401 responses.
-- Added the authenticated `POST /auth/change-password` API helper and types. After success, the existing logout cleanup clears local tokens and redirects to sign-in with a one-time confirmation notice.
-- Kept admin password reset for another user, sends a password only when entered, and explains that the user will be signed out of all devices.
-- Validation: 13 focused tests pass; targeted ESLint, `tsc --noEmit`, `git diff --check`, and the frontend production build pass. No backend files were changed.
-
-## Phone input validation follow-up
-- Centralized the 10-digit, leading-zero phone rules, placeholder, and inline messages in the shared phone input and validator, and reused the input on login, patient registration, profile, and user management.
-- Nonzero leading digits are rejected without replacing the existing field value; non-digits are stripped and reported. Format feedback appears while typing or on blur, and invalid values are blocked from form submission.
-- Login account failures use the generic “Incorrect phone number or password.” response. Test fixtures use synthetic phone values rather than realistic examples.
-- Validation: 30 focused phone/form tests pass, changed phone form files pass targeted ESLint, and `tsc --noEmit` passes. Full lint remains blocked by existing hook lint errors in the dashboard and OPD visit list. Backend phone-format validation remains a backend follow-up; no backend files were changed.
+## Patient details and marital-status reports follow-up
+- Patient and OPD visit detail views always show Ghana Card and NHIS values, using `N/A` when absent. Patient records show the permanent number as `OPD No.` without the `PT-` prefix and include a “Last visit date” summary.
+- Patient search cards also label the number as `OPD No.` without the `PT-` prefix.
+- Added marital-status filtering across patient and OPD report analyses, a patient registration breakdown, report-table values, and OPD export fields. This filter is applied client-side because the existing report endpoints do not accept marital-status filters; linked OPD patient data supplies the status.
+- Added marital status to privacy-limited report cache records and bumped its schema. Existing saved views remain compatible and retain the new filter going forward.
+- Added a visible “Compare” label beside the comparison selector. No backend files were changed.
+- Validation: 21 focused tests pass; frontend TypeScript, targeted ESLint, `git diff --check`, and production build pass.

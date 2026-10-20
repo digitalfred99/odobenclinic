@@ -6,7 +6,7 @@ import { addDays } from "./period";
  * browser) every function quietly does nothing and the page just loads from the server.
  */
 const DB_NAME = "clinic-report-cache";
-const SCHEMA = "v2"; // bump when the saved row shape changes
+const SCHEMA = "v3"; // bump when the saved row shape changes
 export type DateRange = [string, string];
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;

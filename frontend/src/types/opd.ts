@@ -11,6 +11,9 @@ export type OPDVisit = {
     firstName: string;
     lastName: string;
     phone?: string | null;
+    ghCardNumber?: string | null;
+    nhisNumber?: string | null;
+    maritalStatus?: "single" | "married" | "divorced" | "widowed" | null;
     region?: string | null;
     district?: string | null;
     town?: string | null;

@@ -95,6 +95,6 @@ describe("PatientSearchList filters", () => {
 
     renderPatientSearch();
 
-    expect(await screen.findByText("PT-12/2026 • Odoben • Awendadze")).toBeInTheDocument();
+    expect(await screen.findByText("OPD No. 12/2026 • Odoben • Awendadze")).toBeInTheDocument();
   });
 });

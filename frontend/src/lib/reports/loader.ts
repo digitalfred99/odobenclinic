@@ -3,7 +3,7 @@ import type { OPDVisit, OPDVisitListResponse } from "@/types/opd";
 import type { ReportListResponse, ReportRow } from "@/types/report";
 import { getCoverage, readDays, storeClosedRange, subtractRange } from "./cache";
 import { EPOCH, addDays, maxDate, minDate, type Period } from "./period";
-import type { Dataset, LoadProgress, PatientRecord, RecordKind, Sex, VisitRecord, VisitType } from "./types";
+import type { Dataset, LoadProgress, MaritalStatus, PatientRecord, RecordKind, Sex, VisitRecord, VisitType } from "./types";
 
 const PAGE_SIZE = 100;
 const BATCH = 4;
@@ -96,6 +96,10 @@ function toType(value: unknown): VisitType {
   const s = text(value).toLowerCase();
   return s === "new" ? "new" : s === "returning" ? "returning" : "unknown";
 }
+function toMaritalStatus(value: unknown): MaritalStatus {
+  const status = text(value).toLowerCase();
+  return status === "single" || status === "married" || status === "divorced" || status === "widowed" ? status : "unknown";
+}
 
 /** cyrb53: a quick 53-bit hash. One-way, so saved keys do not reveal names or numbers. */
 function hash(input: string): string {
@@ -127,6 +131,7 @@ export function normalizeVisit(row: ReportRow, at: string | null): VisitRecord |
     type: toType(row.newReturning),
     age: toAge(row.age),
     sex: toSex(row.gender),
+    maritalStatus: toMaritalStatus(row.maritalStatus),
     at,
     ...placeOf(row),
   };
@@ -144,6 +149,7 @@ export function normalizePatient(row: ReportRow): PatientRecord | null {
     date,
     age: toAge(row.age),
     sex: toSex(row.gender),
+    maritalStatus: toMaritalStatus(row.maritalStatus),
     hasPhone: phoneDigits.length >= 7,
     hasDob: dob !== "",
     hasGhCard: text(row.ghCardNumber) !== "",
@@ -259,6 +265,7 @@ export function loadVisits(
         district: patient.district ?? row.district,
         town: patient.town ?? row.town,
         area: patient.area ?? row.area,
+        maritalStatus: patient.maritalStatus ?? row.maritalStatus,
       } : row, at);
       return record ? [record] : [];
     });
@@ -308,7 +315,12 @@ export async function loadDayDetails(kind: RecordKind, date: string, signal?: Ab
     rows = rows.map((row) => {
       const visit = queues.get(visitKey(text(row.patientId), text(row.date), text(row.newReturning)))?.shift();
       return visit
-        ? { ...row, remarks: visit.remarks ?? null, visitRecordedAt: visit.createdAt ?? null }
+        ? {
+            ...row,
+            maritalStatus: visit.patient.maritalStatus ?? row.maritalStatus,
+            remarks: visit.remarks ?? null,
+            visitRecordedAt: visit.createdAt ?? null,
+          }
         : row;
     });
   }
@@ -345,7 +357,12 @@ export async function attachRemarks(rows: ReportRow[], period: Period, today: st
       unmatched += 1;
       return row;
     }
-    return { ...row, remarks: match.remarks ?? null, visitRecordedAt: match.createdAt ?? null };
+    return {
+      ...row,
+      maritalStatus: match.patient.maritalStatus ?? row.maritalStatus,
+      remarks: match.remarks ?? null,
+      visitRecordedAt: match.createdAt ?? null,
+    };
   });
   return { rows: merged, unmatched };
 }

@@ -30,6 +30,7 @@ import { PatientForm } from "@/components/features/patients/patient-form";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { apiRequest } from "@/lib/api";
+import { formatPatientDisplayId } from "@/lib/reporting";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolvePatientPhotoUrl } from "@/lib/patient-photo";
 import type { PatientFormValues } from "@/schemas/patient";
@@ -90,6 +91,9 @@ export default function PatientDetailPage() {
 
   const displayValue = (value?: string | number | null) => value ?? "Not provided";
   const valueClassName = "mt-1.5 text-sm font-medium text-foreground";
+  const lastVisitDate = visitsPage === 1
+    ? visitHistory?.opdVisits.reduce((latest, visit) => visit.date > latest ? visit.date : latest, "")
+    : "";
 
   const handleSave = async (values: PatientFormValues) => {
     setSaveNotice(null);
@@ -214,7 +218,7 @@ export default function PatientDetailPage() {
                 <h3 className="mt-1 text-xl font-semibold text-foreground">{patient.firstName} {patient.lastName}</h3>
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                   <IdCard className="h-4 w-4 text-primary" aria-hidden="true" />
-                  Patient ID / OPD No. {displayValue(patient.patientId)}
+                  OPD No. {patient.patientId ? formatPatientDisplayId(patient.patientId) : "N/A"}
                 </p>
               </div>
               {patient.imageUrl ? (
@@ -237,8 +241,8 @@ export default function PatientDetailPage() {
                   <div><PatientDetailLabel icon={Cake}>Age</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.age)}</dd></div>
                   <div><PatientDetailLabel icon={UserRound}>Gender</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.gender)}</dd></div>
                   <div><PatientDetailLabel icon={UsersRound}>Marital status</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.maritalStatus)}</dd></div>
-                  {patient.ghCardNumber ? <div><PatientDetailLabel icon={CreditCard}>Ghana Card number</PatientDetailLabel><dd className={valueClassName}>{patient.ghCardNumber}</dd></div> : null}
-                  {patient.nhisNumber ? <div><PatientDetailLabel icon={ShieldCheck}>NHIS number</PatientDetailLabel><dd className={valueClassName}>{patient.nhisNumber}</dd></div> : null}
+                  <div><PatientDetailLabel icon={CreditCard}>Ghana Card number</PatientDetailLabel><dd className={valueClassName}>{patient.ghCardNumber?.trim() || "N/A"}</dd></div>
+                  <div><PatientDetailLabel icon={ShieldCheck}>NHIS number</PatientDetailLabel><dd className={valueClassName}>{patient.nhisNumber?.trim() || "N/A"}</dd></div>
                 </dl>
               </section>
 
@@ -254,6 +258,12 @@ export default function PatientDetailPage() {
                     <div>
                       <PatientDetailLabel icon={CalendarPlus}>Record created</PatientDetailLabel>
                       <dd className={valueClassName}>{formatTimestamp(patient.createdAt)}</dd>
+                    </div>
+                  ) : null}
+                  {lastVisitDate ? (
+                    <div>
+                      <PatientDetailLabel icon={CalendarDays}>Last visit date</PatientDetailLabel>
+                      <dd className={valueClassName}>{formatVisitDate(lastVisitDate)}</dd>
                     </div>
                   ) : null}
                   {patient.createdBy ? (

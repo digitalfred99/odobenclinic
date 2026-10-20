@@ -159,6 +159,7 @@ beforeEach(() => {
 describe("report export field selection", () => {
   it("opens report actions and saves views through the working action menu", async () => {
     renderReportsPage();
+    expect(await screen.findByText("Compare", { selector: "span" })).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Report actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Save current view…" }));
 
@@ -168,6 +169,17 @@ describe("report export field selection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Report actions" }));
     expect(screen.getByRole("menuitem", { name: "Reception view" })).toBeInTheDocument();
+  });
+
+  it("filters report records by marital status", async () => {
+    renderReportsPage();
+    await screen.findAllByText("Ama Mensah");
+    fireEvent.click(screen.getByRole("button", { name: "Report actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Filters" }));
+    fireEvent.change(screen.getByLabelText("Marital status"), { target: { value: "single" } });
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(await screen.findByText("No records match the current period and filters.")).toBeInTheDocument();
   });
 
   it("enriches OPD report rows with remarks from the existing visit list API", async () => {

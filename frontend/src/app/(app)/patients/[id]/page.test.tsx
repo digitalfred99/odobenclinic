@@ -69,6 +69,7 @@ describe("PatientDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Contact & location" })).toBeInTheDocument();
     expect(screen.getByText("GHA-123456789-0")).toBeInTheDocument();
     expect(screen.getByText("56738945")).toBeInTheDocument();
+    expect(screen.getByText("OPD No. 12/2026")).toBeInTheDocument();
     expect(screen.getByText("Record created")).toBeInTheDocument();
     expect(screen.getByText("This patient ID is permanent and is also the OPD No. used for every visit.")).toBeInTheDocument();
 
@@ -113,7 +114,24 @@ describe("PatientDetailPage", () => {
     renderPatientDetail();
 
     expect(await screen.findByText("Review appointment")).toBeInTheDocument();
-    expect(screen.getByText("Friday, 9 October 2026")).toBeInTheDocument();
+    expect(screen.getAllByText("Friday, 9 October 2026")).toHaveLength(2);
+    expect(screen.getByText("Last visit date")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next visit history page" })).toBeEnabled();
+  });
+
+  it("shows N/A for unprovided patient identifiers", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      id: "patient-uuid",
+      firstName: "Ama",
+      lastName: "Mensah",
+      ghCardNumber: null,
+      nhisNumber: "",
+    });
+    vi.mocked(apiRequest).mockResolvedValueOnce({ opdVisits: [], pagination: { total: 0, totalPages: 1 } });
+
+    renderPatientDetail();
+
+    expect(await screen.findByText("Ghana Card number")).toBeInTheDocument();
+    expect(screen.getAllByText("N/A")).toHaveLength(2);
   });
 });

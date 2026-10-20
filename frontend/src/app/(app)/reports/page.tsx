@@ -11,7 +11,7 @@ import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { getReportFilename } from "@/lib/reporting";
 import {
   buildHeatmap, buildInsights, buildPyramid, buildQuality, buildRetention, buildTrend, dailyCounts, describeSlice,
-  findDuplicates, findLapsed, findUnusualDays, matchesPatient, matchesVisit, parseCommand,
+  buildMaritalBreakdown, findDuplicates, findLapsed, findUnusualDays, matchesPatient, matchesVisit, parseCommand,
   rankBy, summarize, visitFrequency, weekdayStats,
 } from "@/lib/reports/analytics";
 import {
@@ -68,6 +68,7 @@ function readUrl(params: URLSearchParams) {
   const slice: Slice = {
     ...EMPTY_SLICE,
     sex: pick(params.get("sex"), ["", "male", "female", "other"] as const, ""),
+    maritalStatus: pick(params.get("marital"), ["", "single", "married", "divorced", "widowed", "unknown"] as const, ""),
     ageBand: params.get("age") ?? "",
     type: pick(params.get("type"), ["", "new", "returning", "unknown"] as const, ""),
     area: params.get("area") ?? "", town: params.get("town") ?? "", district: params.get("district") ?? "", region: params.get("region") ?? "",
@@ -237,13 +238,15 @@ function ReportsPageContent() {
 
     const pyramid = buildPyramid(slicedVisits);
     const areas = rankBy(slicedVisits, (v) => v.area, 10);
+    const maritalRows = patients.filter((p) => matchesPatient(p, { ...sliceNoMissing, maritalStatus: "" }, dup.pids));
+    const marital = buildMaritalBreakdown(maritalRows);
     const heat = buildHeatmap(slicedVisits);
     const historyRows = (historyQ.data?.rows ?? NO_VISITS).filter((v) => matchesVisit(v, { ...slice, type: "", weekday: null }));
 
     return {
       summary, prev: prevSummary, prevLabel, trend, ghost,
       insights: buildInsights({ summary, prev: prevSummary, prevLabel, weekdayTotals: stats.totals, heat, pyramid, areas }),
-      unusual, pyramid, areas, towns: rankBy(slicedVisits, (v) => v.town, 10),
+      unusual, pyramid, areas, towns: rankBy(slicedVisits, (v) => v.town, 10), marital,
       quality: buildQuality(newRecords), duplicates: dup, heat,
       weekday: { totals: stats.totals, typical: stats.typical },
       frequency: visitFrequency(slicedVisits),
@@ -262,7 +265,7 @@ function ReportsPageContent() {
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slicedVisits, newRecords, prevVisits, prevPatients, prevVisitsQ.data, prevPatientsQ.data, historyQ.data, historyQ.isLoading, historyQ.error, historyOn, slice, dup, days, rangeFrom, rangeTo, size, today, prev, prevLabel]);
+  }, [slicedVisits, patients, newRecords, prevVisits, prevPatients, prevVisitsQ.data, prevPatientsQ.data, historyQ.data, historyQ.isLoading, historyQ.error, historyOn, slice, sliceNoMissing, dup, days, rangeFrom, rangeTo, size, today, prev, prevLabel]);
 
   const vocab = useMemo(() => {
     const sets = { areas: new Set<string>(), towns: new Set<string>(), districts: new Set<string>(), regions: new Set<string>() };
@@ -285,7 +288,7 @@ function ReportsPageContent() {
     const p = new URLSearchParams();
     p.set("period", preset); p.set("tab", tab); p.set("compare", compare); p.set("kind", recordsKind);
     if (preset === "custom") { if (custom.from) p.set("from", custom.from); if (custom.to) p.set("to", custom.to); }
-    const entries: [string, string][] = [["sex", slice.sex], ["age", slice.ageBand], ["type", slice.type], ["area", slice.area], ["town", slice.town], ["district", slice.district], ["region", slice.region], ["wd", slice.weekday === null ? "" : String(slice.weekday)], ["missing", slice.missing]];
+    const entries: [string, string][] = [["sex", slice.sex], ["marital", slice.maritalStatus], ["age", slice.ageBand], ["type", slice.type], ["area", slice.area], ["town", slice.town], ["district", slice.district], ["region", slice.region], ["wd", slice.weekday === null ? "" : String(slice.weekday)], ["missing", slice.missing]];
     entries.forEach(([k, v]) => { if (v) p.set(k, v); });
     router.replace(`${pathname}?${p}`, { scroll: false });
   }, [preset, custom, compare, tab, recordsKind, slice, pathname, router]);
@@ -314,7 +317,7 @@ function ReportsPageContent() {
     setSaveViewOpen(false);
   };
   const applyView = (v: SavedView) => {
-    setPreset(v.preset); setCustom({ from: v.from, to: v.to }); setCompare(v.compare); setSlice(v.slice);
+    setPreset(v.preset); setCustom({ from: v.from, to: v.to }); setCompare(v.compare); setSlice({ ...EMPTY_SLICE, ...v.slice });
     setTab(v.tab ?? "records"); setRecordsKind(v.kind ?? "patients");
   };
   const deleteView = (id: string) => { const next = views.filter((v) => v.id !== id); setViews(next); writeStore("clinic-report-views", next); };
@@ -444,6 +447,7 @@ function ReportsPageContent() {
             </>
           ) : <span className="hidden shrink-0 whitespace-nowrap px-1 text-sm text-muted-foreground sm:inline">{label}</span>}
           <label className="sr-only" htmlFor="rpt-compare">Compare with</label>
+            <span className="shrink-0 text-[10px] text-muted-foreground sm:text-xs" aria-hidden="true">Compare</span>
             <select id="rpt-compare" className={`${selectClass} h-9 min-w-0 flex-1 px-1 text-xs sm:h-11 sm:flex-none sm:px-3 sm:text-sm`} value={compare} onChange={(e) => setCompare(e.target.value as CompareMode)}>
               <option value="previous">Previous</option><option value="lastYear">Last year</option><option value="none">None</option>
             </select>

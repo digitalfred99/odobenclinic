@@ -151,6 +151,11 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
   };
   const nameOf = (d: ReportRow | null) => d?.name ?? (isFetching ? "…" : "—");
   const dateLabel = (r: Rec) => formatReportDate(r.date);
+  const maritalStatusLabel = (detail: ReportRow | null) => {
+    if (!detail) return "—";
+    const status = detail.maritalStatus?.trim();
+    return status ? status.charAt(0).toUpperCase() + status.slice(1) : "Not recorded";
+  };
   const typeLabel = (r: Rec) => ("type" in r ? r.type : "");
   const timeLabel = (r: Rec) => {
     if (!("at" in r) || !r.at) return "";
@@ -212,6 +217,7 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                   <th className="px-3 py-1 font-semibold">Name</th>
                   <SortableHeader id="age" label="Age" sortKey={sortKey} dir={dir} onSort={sortBy} />
                   <SortableHeader id="sex" label="Sex" sortKey={sortKey} dir={dir} onSort={sortBy} />
+                  <th className="px-3 py-1 font-semibold">Marital status</th>
                   <SortableHeader id="area" label="Area" sortKey={sortKey} dir={dir} onSort={sortBy} />
                   <SortableHeader id="date" label={kind === "visits" ? "Visit date" : "Registered"} sortKey={sortKey} dir={dir} onSort={sortBy} />
                   {kind === "visits" ? (
@@ -232,6 +238,7 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                     <td className="max-w-64 break-words px-3 py-3">{nameOf(detailRows[i])}</td>
                     <td className="px-3 py-3 tabular-nums">{r.age ?? "—"}</td>
                     <td className="px-3 py-3 capitalize">{r.sex === "other" ? "—" : r.sex}</td>
+                    <td className="px-3 py-3">{maritalStatusLabel(detailRows[i])}</td>
                     <td className="px-3 py-3">{placeLabel(r.area)}</td>
                     <td className="px-3 py-3">{dateLabel(r)} {timeLabel(r)}</td>
                     {kind === "visits" ? (
@@ -254,7 +261,7 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
               <li key={`${r.pid}-${r.date}-${i}`} className="rounded-xl border border-border bg-background p-4">
                 <p className="break-words font-medium text-foreground">{nameOf(detailRows[i])}</p>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  <span className="font-mono text-xs">{formatPatientDisplayId(r.pid)}</span> · {r.age ?? "—"} yrs · <span className="capitalize">{r.sex === "other" ? "sex not recorded" : r.sex}</span>
+                  OPD No. <span className="font-mono text-xs">{formatPatientDisplayId(r.pid)}</span> · {r.age ?? "—"} yrs · <span className="capitalize">{r.sex === "other" ? "sex not recorded" : r.sex}</span> · {maritalStatusLabel(detailRows[i])}
                 </p>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {placeLabel(r.area)} · {dateLabel(r)} {timeLabel(r)}{kind === "visits" ? ` · ${typeLabel(r)}` : ""}
