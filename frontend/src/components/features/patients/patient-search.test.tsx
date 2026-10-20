@@ -86,6 +86,7 @@ describe("PatientSearchList filters", () => {
       patients: [{
         id: "patient-1",
         firstName: "Ama",
+        otherName: "Yaa",
         lastName: "Mensah",
         patientId: "PT-12/2026",
         town: "Odoben",
@@ -95,6 +96,7 @@ describe("PatientSearchList filters", () => {
 
     renderPatientSearch();
 
+    expect(await screen.findByText("Ama Yaa Mensah")).toBeInTheDocument();
     expect(await screen.findByText("OPD No. 12/2026 • Odoben • Awendadze")).toBeInTheDocument();
   });
 });

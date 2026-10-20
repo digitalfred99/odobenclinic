@@ -39,6 +39,18 @@ vi.mock("@/components/features/patients/patient-form", () => ({
       >
         Submit test patient
       </button>
+      <button
+        type="button"
+        onClick={() => void onSubmit({
+          firstName: "Ama",
+          lastName: "Mensah",
+          age: 36,
+          gender: "female",
+          maritalStatus: "single",
+        }, new File(["photo"], "patient.png", { type: "image/png" }))}
+      >
+        Submit test patient with photo
+      </button>
     </div>
   ),
 }));
@@ -59,6 +71,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 beforeEach(() => {
+  vi.mocked(apiRequest).mockClear();
   navigation.register = "";
   navigation.push.mockClear();
   navigation.replace.mockClear();
@@ -151,6 +164,61 @@ describe("PatientsPage registration actions", () => {
         },
       }),
     });
+  });
+
+  it("uses the transactional endpoint with multipart data when registering a patient with a photo", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PatientsPage />
+      </QueryClientProvider>
+    );
+
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      patient: {
+        id: "patient-uuid",
+        firstName: "Ama",
+        lastName: "Mensah",
+        patientId: "PT-12/2026",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Register new patient" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit test patient with photo" }));
+
+    expect(await screen.findByText("Patient registered: PT-12/2026. First OPD visit recorded.")).toBeInTheDocument();
+
+    const registrationCall = vi.mocked(apiRequest).mock.calls.find(([path]) => path === "/patients/with-opd");
+    if (!registrationCall) {
+      throw new Error("Expected the transactional patient registration request");
+    }
+    const [path, request] = registrationCall;
+    expect(path).toBe("/patients/with-opd");
+    expect(request?.method).toBe("POST");
+    expect(request?.body).toBeInstanceOf(FormData);
+
+    const formData = request?.body as FormData;
+    expect(JSON.parse(String(formData.get("patient")))).toEqual({
+      firstName: "Ama",
+      lastName: "Mensah",
+      age: 36,
+      gender: "female",
+      maritalStatus: "single",
+    });
+    expect(formData.get("image")).toMatchObject({
+      name: "patient.png",
+      type: "image/png",
+    });
+    expect(
+      vi.mocked(apiRequest).mock.calls.some(([requestPath, options]) =>
+        requestPath === "/patients" && options?.method === "POST"
+      )
+    ).toBe(false);
+    expect(
+      vi.mocked(apiRequest).mock.calls.some(([requestPath]) => requestPath === "/opd-visits")
+    ).toBe(false);
   });
 
   it("opens comparison in a second popup and returns to the duplicate card when closed", async () => {

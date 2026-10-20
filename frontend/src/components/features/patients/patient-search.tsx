@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
+import { formatPatientName } from "@/lib/patient-name";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { cn } from "@/lib/utils";
 import type { PatientListResponse } from "@/types/patient";
@@ -98,8 +99,8 @@ export function PatientSearchList({ className }: { className?: string }) {
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             className="pl-9"
-            aria-label="Search patients by name, patient ID, phone, Ghana Card, NHIS number or area"
-            placeholder="Search by name, patient ID, phone, Ghana Card, NHIS or area"
+            aria-label="Search patients by name including other name, patient ID, phone, Ghana Card, NHIS number or area"
+            placeholder="Search by name, other name, patient ID, phone, Ghana Card, NHIS or area"
           />
         </div>
         <Button
@@ -212,7 +213,7 @@ export function PatientSearchList({ className }: { className?: string }) {
         {patients.map((patient) => (
           <div key={patient.id} className="flex flex-col gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="font-medium text-foreground">{patient.firstName} {patient.lastName}</p>
+              <p className="font-medium text-foreground">{formatPatientName(patient)}</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 OPD No. {patient.patientId ? formatPatientDisplayId(patient.patientId) : "unavailable"}
                 {patient.town ? ` • ${patient.town}` : ""}

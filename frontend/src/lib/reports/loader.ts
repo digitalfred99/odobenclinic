@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api";
 import type { OPDVisit, OPDVisitListResponse } from "@/types/opd";
 import type { ReportListResponse, ReportRow } from "@/types/report";
+import { formatPatientName } from "@/lib/patient-name";
 import { getCoverage, readDays, storeClosedRange, subtractRange } from "./cache";
 import { EPOCH, addDays, maxDate, minDate, type Period } from "./period";
 import type { Dataset, LoadProgress, MaritalStatus, PatientRecord, RecordKind, Sex, VisitRecord, VisitType } from "./types";
@@ -140,7 +141,7 @@ export function normalizeVisit(row: ReportRow, at: string | null): VisitRecord |
 export function normalizePatient(row: ReportRow): PatientRecord | null {
   const date = text(row.dateRegistered ?? row.date).slice(0, 10);
   if (date.length < 10) return null;
-  const name = (text(row.firstName) + " " + text(row.lastName)).trim() || text(row.name);
+  const name = formatPatientName(row) || text(row.name);
   const nameToken = name.toLowerCase().replace(/[^a-z0-9]/g, "");
   const dob = text(row.dateOfBirth).slice(0, 10);
   const phoneDigits = text(row.phone).replace(/\D/g, "");

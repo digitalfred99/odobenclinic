@@ -1,6 +1,7 @@
 export type ReportRow = {
   patientId: string;
   firstName?: string;
+  otherName?: string | null;
   lastName?: string;
   name: string;
   dateOfBirth?: string | null;

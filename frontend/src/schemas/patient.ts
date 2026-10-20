@@ -4,6 +4,7 @@ import { getDateOfBirthError } from "@/lib/dates";
 
 export type PatientFormValues = {
   firstName: string;
+  otherName?: string;
   lastName: string;
   dateOfBirth?: string;
   age?: number | string;
@@ -21,6 +22,7 @@ export type PatientFormValues = {
 export const patientFormSchema = z
   .object({
     firstName: z.string().trim().min(1, "First name is required"),
+    otherName: z.string().trim().optional().or(z.literal("")),
     lastName: z.string().trim().min(1, "Last name is required"),
     dateOfBirth: z.string().optional().or(z.literal("")),
     age: z.union([

@@ -8,6 +8,7 @@ import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Loader2, Search,
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
+import { formatPatientName } from "@/lib/patient-name";
 import { buildOPDVisitQuery, type VisitDateRange } from "@/lib/opd-visits";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -144,7 +145,7 @@ function PatientDetailsDialog({
           </span>
           <div className="min-w-0">
             <h2 id="patient-details-title" className="truncate text-lg font-semibold text-foreground">
-              {patient.firstName} {patient.lastName}
+              {formatPatientName(patient)}
             </h2>
             <p className="text-sm text-muted-foreground">Patient details and attendance history</p>
           </div>
@@ -594,7 +595,7 @@ function OPDVisitRegistrationContent() {
               <h3 id="find-patient-heading" className="text-lg font-semibold leading-7 text-foreground">
                 Find a patient
               </h3>
-              <p className="text-sm text-muted-foreground">Search by name, OPD No., phone number or area.</p>
+              <p className="text-sm text-muted-foreground">Search by name, other name, OPD No., phone number or area.</p>
             </div>
           </div>
 
@@ -625,7 +626,7 @@ function OPDVisitRegistrationContent() {
                 autoCapitalize="off"
                 autoCorrect="off"
                 spellCheck={false}
-                placeholder="Type a name, OPD No., phone or area"
+                placeholder="Type a name, other name, OPD No., phone or area"
                 className="h-full min-w-0 flex-1 bg-transparent px-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
               />
               {isFetching || isSettling ? (
@@ -740,7 +741,7 @@ function OPDVisitRegistrationContent() {
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate font-medium text-foreground">
-                            {patient.firstName} {patient.lastName}
+                            {formatPatientName(patient)}
                           </p>
                           <p className="mt-0.5 truncate text-sm text-muted-foreground">
                             OPD No. {formatPatientId(patient.patientId)}
@@ -765,7 +766,7 @@ function OPDVisitRegistrationContent() {
                         </div>
                         <button
                           type="button"
-                          aria-label={`More details for ${patient.firstName} ${patient.lastName}`}
+                          aria-label={`More details for ${formatPatientName(patient)}`}
                           onClick={(event) => {
                             event.stopPropagation();
                             setDetailsPatient(patient);
@@ -833,7 +834,7 @@ function OPDVisitRegistrationContent() {
                       </span>
                       <div className="min-w-0">
                         <p className="truncate font-semibold">
-                          {selectedPatient.firstName} {selectedPatient.lastName}
+                          {formatPatientName(selectedPatient)}
                         </p>
                         <p className="mt-0.5 truncate text-sm text-muted-foreground">
                           OPD No. {formatPatientId(selectedPatient.patientId)}
@@ -844,7 +845,7 @@ function OPDVisitRegistrationContent() {
                     <div className="flex shrink-0 items-center">
                       <button
                         type="button"
-                        aria-label={`More details for ${selectedPatient.firstName} ${selectedPatient.lastName}`}
+                        aria-label={`More details for ${formatPatientName(selectedPatient)}`}
                         onClick={() => setDetailsPatient(selectedPatient)}
                         className="inline-flex min-h-10 items-center gap-0.5 rounded-lg px-2.5 text-sm font-medium text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
@@ -1007,7 +1008,7 @@ function OPDVisitRegistrationContent() {
             {lastCreatedVisit ? (
               <div id="visit-saved-description" className="space-y-0.5">
                 <p className="text-base font-medium text-foreground">
-                  {lastCreatedVisit.patient?.firstName} {lastCreatedVisit.patient?.lastName}
+                  {formatPatientName(lastCreatedVisit.patient)}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   OPD No. {formatPatientId(lastCreatedVisit.patient?.patientId)}

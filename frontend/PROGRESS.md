@@ -208,9 +208,10 @@
 - Removed the “Areas that went quiet” comparison section from the People and places report.
 
 ## Patient details and marital-status reports follow-up
-- Patient and OPD visit detail views always show Ghana Card and NHIS values, using `N/A` when absent. Patient records show the permanent number as `OPD No.` without the `PT-` prefix and include a “Last visit date” summary.
-- Patient search cards also label the number as `OPD No.` without the `PT-` prefix.
-- Added marital-status filtering across patient and OPD report analyses, a patient registration breakdown, report-table values, and OPD export fields. This filter is applied client-side because the existing report endpoints do not accept marital-status filters; linked OPD patient data supplies the status.
-- Added marital status to privacy-limited report cache records and bumped its schema. Existing saved views remain compatible and retain the new filter going forward.
-- Added a visible “Compare” label beside the comparison selector. No backend files were changed.
+
+## Patient other-name display follow-up
+- Added optional other-name entry to patient registration and editing, and show it in the patient detail view.
+- Use a shared full-name formatter in patient search cards, OPD patient selection, visit lists/details, and report records. Patient, OPD visit, and report searches advertise other-name search; the existing API search paths already support it.
+- Added the patient report's separate Other name export field. Full-name fields in patient and OPD reports include the other name.
+- No backend files were changed. Validation: 26 focused tests pass, frontend TypeScript and production build pass, and all changed files except the OPD visit list pass ESLint. That file retains its existing setState-in-effect lint error.
 - Validation: 21 focused tests pass; frontend TypeScript, targeted ESLint, `git diff --check`, and production build pass.

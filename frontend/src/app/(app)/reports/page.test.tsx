@@ -267,6 +267,7 @@ describe("report export field selection", () => {
     expect(excelState.rows[0]).toEqual([
       "Patient ID / OPD No.",
       "First name",
+      "Other name",
       "Last name",
       "Full name",
       "Date of birth",
@@ -284,6 +285,7 @@ describe("report export field selection", () => {
     expect(excelState.rows[1]).toEqual([
       "12/2026",
       "Ama",
+      "—",
       "Mensah",
       "Ama Mensah",
       "4 Oct 1990",

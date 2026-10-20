@@ -7,7 +7,7 @@ import type { RecordKind } from "./types";
 export const FACILITY_NAME = "ODOBEN HEALTH CENTER";
 
 export type ReportField =
-  | "patientId" | "firstName" | "lastName" | "name" | "dateOfBirth" | "age" | "phone" | "region" | "district"
+  | "patientId" | "firstName" | "otherName" | "lastName" | "name" | "dateOfBirth" | "age" | "phone" | "region" | "district"
   | "town" | "gender" | "maritalStatus" | "area" | "ghCardNumber" | "nhisNumber" | "date" | "dateRegistered"
   | "newReturning" | "visitRecordedAt" | "visitsInReport" | "remarks";
 export type ReportFieldOption = { key: ReportField; label: string };
@@ -16,7 +16,7 @@ export function getReportFields(kind: RecordKind): ReportFieldOption[] {
   if (kind === "patients") {
     return [
       { key: "patientId", label: "Patient ID / OPD No." }, { key: "firstName", label: "First name" },
-      { key: "lastName", label: "Last name" }, { key: "name", label: "Full name" },
+      { key: "otherName", label: "Other name" }, { key: "lastName", label: "Last name" }, { key: "name", label: "Full name" },
       { key: "dateOfBirth", label: "Date of birth" }, { key: "age", label: "Age" },
       { key: "phone", label: "Phone" }, { key: "gender", label: "Gender" },
       { key: "maritalStatus", label: "Marital status" }, { key: "ghCardNumber", label: "Ghana Card number" },
@@ -33,7 +33,7 @@ export function getReportFields(kind: RecordKind): ReportFieldOption[] {
   ];
 }
 
-export const PERSONAL_FIELDS: ReportField[] = ["firstName", "lastName", "name", "dateOfBirth", "phone", "ghCardNumber", "nhisNumber"];
+export const PERSONAL_FIELDS: ReportField[] = ["firstName", "otherName", "lastName", "name", "dateOfBirth", "phone", "ghCardNumber", "nhisNumber"];
 
 function rawValue(row: ReportRow, kind: RecordKind, field: ReportField): string | number | boolean | null {
   switch (field) {

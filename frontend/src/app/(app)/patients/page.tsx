@@ -50,7 +50,6 @@ function PatientsPageContent() {
   const [confirmedDuplicatePatientId, setConfirmedDuplicatePatientId] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const [incompleteVisitPatient, setIncompleteVisitPatient] = useState<Patient | null>(null);
 
   const closeRegistration = () => {
     setRegistrationMode(null);
@@ -130,75 +129,59 @@ function PatientsPageContent() {
     setComparisonError(null);
     setReviewNotice(null);
     setPhotoError(null);
-    setIncompleteVisitPatient(null);
 
     try {
       const confirmedPatientId = confirmedDuplicatePatientId;
-      let body: BodyInit;
-      if (photo) {
-        const formData = new FormData();
-        Object.entries(values).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== "") {
-            formData.append(key, String(value));
-          }
-        });
-        if (confirmedPatientId) {
-          formData.append("confirmedDuplicatePatientId", confirmedPatientId);
-        }
-        formData.append("image", photo);
-        body = formData;
-      } else {
-        body = JSON.stringify({
-          ...values,
-          ...(confirmedPatientId ? { confirmedDuplicatePatientId: confirmedPatientId } : {}),
-        });
-      }
-
       let patient: Patient;
       let firstVisitRecorded = false;
 
-      if (registrationMode === "new" && !photo) {
+      if (registrationMode === "new") {
+        let registrationBody: BodyInit;
+        const patientData = {
+          ...values,
+          ...(confirmedPatientId ? { confirmedDuplicatePatientId: confirmedPatientId } : {}),
+        };
+
+        if (photo) {
+          const formData = new FormData();
+          formData.append("patient", JSON.stringify(patientData));
+          formData.append("image", photo);
+          registrationBody = formData;
+        } else {
+          registrationBody = JSON.stringify({ patient: patientData });
+        }
+
         const result = await apiRequest<PatientWithOpdResponse>("/patients/with-opd", {
           method: "POST",
-          body: JSON.stringify({
-            patient: {
-              ...values,
-              ...(confirmedPatientId ? { confirmedDuplicatePatientId: confirmedPatientId } : {}),
-            },
-          }),
+          body: registrationBody,
         });
         patient = result.patient;
         firstVisitRecorded = true;
       } else {
+        let body: BodyInit;
+        if (photo) {
+          const formData = new FormData();
+          Object.entries(values).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+              formData.append(key, String(value));
+            }
+          });
+          if (confirmedPatientId) {
+            formData.append("confirmedDuplicatePatientId", confirmedPatientId);
+          }
+          formData.append("image", photo);
+          body = formData;
+        } else {
+          body = JSON.stringify({
+            ...values,
+            ...(confirmedPatientId ? { confirmedDuplicatePatientId: confirmedPatientId } : {}),
+          });
+        }
+
         patient = await apiRequest<Patient>("/patients", {
           method: "POST",
           body,
         });
-
-        if (registrationMode === "new") {
-          try {
-            await apiRequest("/opd-visits", {
-              method: "POST",
-              body: JSON.stringify({ patient: patient.id }),
-            });
-            firstVisitRecorded = true;
-          } catch (visitError) {
-            cachePatientLocation(patient);
-            queryClient.setQueryData<PatientListResponse>(
-              ["patients", ""],
-              (current) => prependPatientToList(current, patient)
-            );
-            void queryClient.invalidateQueries({ queryKey: ["patients"] });
-            void queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] });
-            void queryClient.invalidateQueries({ queryKey: ["dashboard-new-patients"] });
-            setIncompleteVisitPatient(patient);
-            setError(
-              `The patient was saved${patient.patientId ? ` as ${patient.patientId}` : ""}, but the first OPD visit was not recorded. ${visitError instanceof Error ? visitError.message : "Please register the visit before continuing."}`
-            );
-            closeRegistration();
-            return true;
-          }
-        }
       }
 
       cachePatientLocation(patient);
@@ -294,24 +277,6 @@ function PatientsPageContent() {
 
       {notice ? <FeedbackMessage message={notice} kind="success" onDismiss={() => setNotice(null)} /> : null}
       {error ? <FeedbackMessage message={error} kind="error" onDismiss={() => setError(null)} /> : null}
-      {incompleteVisitPatient ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-foreground">
-            The patient record is safe. Continue to OPD registration to complete today&apos;s attendance.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="border-warning/50 text-foreground"
-            onClick={() => {
-              router.push(`/opd-visits/register?patientId=${encodeURIComponent(incompleteVisitPatient.id)}`);
-            }}
-          >
-            Register first OPD visit
-          </Button>
-        </div>
-      ) : null}
-
       <PatientSearchList />
 
       <Dialog.Root

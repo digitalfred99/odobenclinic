@@ -4,6 +4,7 @@ export type PatientMaritalStatus = "single" | "married" | "divorced" | "widowed"
 export type Patient = {
   id: string;
   firstName: string;
+  otherName?: string | null;
   lastName: string;
   patientId?: string;
   dateOfBirth?: string | null;

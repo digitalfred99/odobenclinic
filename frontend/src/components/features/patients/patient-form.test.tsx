@@ -33,6 +33,12 @@ describe("PatientForm defaults and guidance", () => {
     expect(screen.queryByText(/Auto-calculated age/)).not.toBeInTheDocument();
   });
 
+  it("shows an optional other-name field", () => {
+    render(<PatientForm onSubmit={vi.fn()} />);
+
+    expect(screen.getByLabelText("Other name")).toBeInTheDocument();
+  });
+
   it("allows a user to type a custom district", () => {
     render(<PatientForm onSubmit={vi.fn()} />);
 

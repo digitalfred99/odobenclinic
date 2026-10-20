@@ -190,7 +190,7 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <input
           type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Search by name or OPD No." aria-label="Search records by patient name or OPD number"
+          placeholder="Search by name, other name or OPD No." aria-label="Search records by patient name, other name or OPD number"
           className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm sm:w-64"
         />
         <label className="flex items-center gap-2 text-sm text-muted-foreground">

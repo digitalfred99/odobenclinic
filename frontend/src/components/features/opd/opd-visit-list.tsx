@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api";
+import { formatPatientName } from "@/lib/patient-name";
 import { buildOPDVisitQuery, getVisitDateRange, type VisitDatePreset, type VisitDateRange } from "@/lib/opd-visits";
 import type { OPDVisitListResponse } from "@/types/opd";
 
@@ -208,7 +209,7 @@ export default function OPDVisitList() {
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="Type a patient name, OPD No. or visit date"
+              placeholder="Type a patient name, other name, OPD No. or visit date"
               className="h-full min-w-0 flex-1 bg-transparent px-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
             />
             {trimmedSearch && (isFetching || isSettling) ? (
@@ -394,7 +395,7 @@ export default function OPDVisitList() {
                   <article className="flex flex-col gap-4 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-foreground">
-                        {visit.patient.firstName} {visit.patient.lastName}
+                        {formatPatientName(visit.patient)}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                         <span>OPD No. {formatPatientId(visit.patient.patientId)}</span>
@@ -430,7 +431,7 @@ export default function OPDVisitList() {
                         type="button"
                         variant="outline"
                         className="min-h-11 min-w-24"
-                        aria-label={`View visit for ${visit.patient.firstName} ${visit.patient.lastName}`}
+                        aria-label={`View visit for ${formatPatientName(visit.patient)}`}
                         onClick={() => router.push(`/opd-visits/${encodeURIComponent(visit.id)}`)}
                       >
                         View

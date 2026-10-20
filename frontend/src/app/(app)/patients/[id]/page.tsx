@@ -30,6 +30,7 @@ import { PatientForm } from "@/components/features/patients/patient-form";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { apiRequest } from "@/lib/api";
+import { formatPatientName } from "@/lib/patient-name";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolvePatientPhotoUrl } from "@/lib/patient-photo";
@@ -132,7 +133,7 @@ export default function PatientDetailPage() {
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Patient record</p>
             <h2 className="mt-1 truncate text-2xl font-semibold text-foreground sm:text-3xl">
-              {patient ? `${patient.firstName} ${patient.lastName}` : "Patient details"}
+              {patient ? formatPatientName(patient) : "Patient details"}
             </h2>
           </div>
         </div>
@@ -182,6 +183,7 @@ export default function PatientDetailPage() {
             key={patient.id}
             initialValues={{
               firstName: patient.firstName,
+              otherName: patient.otherName ?? "",
               lastName: patient.lastName,
               dateOfBirth: patient.dateOfBirth?.slice(0, 10) ?? "",
               age: patient.age ?? "",
@@ -215,7 +217,7 @@ export default function PatientDetailPage() {
                   <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
                   Patient
                 </p>
-                <h3 className="mt-1 text-xl font-semibold text-foreground">{patient.firstName} {patient.lastName}</h3>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">{formatPatientName(patient)}</h3>
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                   <IdCard className="h-4 w-4 text-primary" aria-hidden="true" />
                   OPD No. {patient.patientId ? formatPatientDisplayId(patient.patientId) : "N/A"}
@@ -224,7 +226,7 @@ export default function PatientDetailPage() {
               {patient.imageUrl ? (
                 <Image
                   src={resolvePatientPhotoUrl(patient.imageUrl)}
-                  alt={`Patient photo of ${patient.firstName} ${patient.lastName}`}
+                  alt={`Patient photo of ${formatPatientName(patient)}`}
                   width={96}
                   height={96}
                   unoptimized
@@ -238,6 +240,7 @@ export default function PatientDetailPage() {
                 <h4 id="patient-personal-details" className="font-semibold text-foreground">Personal details</h4>
                 <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
                   <div><PatientDetailLabel icon={CalendarDays}>Date of birth</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.dateOfBirth)}</dd></div>
+                  <div><PatientDetailLabel icon={UserRound}>Other name</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.otherName)}</dd></div>
                   <div><PatientDetailLabel icon={Cake}>Age</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.age)}</dd></div>
                   <div><PatientDetailLabel icon={UserRound}>Gender</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.gender)}</dd></div>
                   <div><PatientDetailLabel icon={UsersRound}>Marital status</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.maritalStatus)}</dd></div>

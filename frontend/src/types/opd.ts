@@ -9,6 +9,7 @@ export type OPDVisit = {
     id: string;
     patientId?: string;
     firstName: string;
+    otherName?: string | null;
     lastName: string;
     phone?: string | null;
     ghCardNumber?: string | null;

@@ -38,13 +38,13 @@ describe("patient report records", () => {
     vi.mocked(apiRequest).mockImplementation(async <T,>(path: string) => {
       if (path.startsWith("/patients?")) {
         return {
-          patients: [{ id: "patient-1", firstName: "Ama", lastName: "Mensah", patientId: "PT-1/2026" }],
+          patients: [{ id: "patient-1", firstName: "Ama", otherName: "Yaa", lastName: "Mensah", patientId: "PT-1/2026" }],
           pagination: { page: 1, limit: 100, total: 1, totalPages: 1 },
         } as T;
       }
       return {
         rows: [
-          { patientId: "PT-1/2026", name: "Ama Mensah", age: 30, gender: "female", area: null, date: "2026-10-04", dateOfBirth: null, phone: null, ghCardNumber: null, nhisNumber: null },
+          { patientId: "PT-1/2026", firstName: "Ama", otherName: "Yaa", lastName: "Mensah", name: "Ama Yaa Mensah", age: 30, gender: "female", area: null, date: "2026-10-04", dateOfBirth: null, phone: null, ghCardNumber: null, nhisNumber: null },
           { patientId: "PT-2/2026", name: "Kojo Mensah", age: 32, gender: "male", area: "Osu", date: "2026-10-04", dateOfBirth: "1994-01-01", phone: "0".repeat(10), ghCardNumber: "GHA-123456789-0", nhisNumber: "NHIS-1" },
         ],
         total: 2,
@@ -57,9 +57,13 @@ describe("patient report records", () => {
     renderTable();
     expect(await screen.findAllByText("Missing: phone number, date of birth, Ghana Card, NHIS number, area")).not.toHaveLength(0);
 
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Ama" } });
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Yaa" } });
 
-    await waitFor(() => expect(screen.getAllByText("Ama Mensah")).not.toHaveLength(0));
+    await waitFor(() => expect(screen.getAllByText("Ama Yaa Mensah")).not.toHaveLength(0));
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/patients?search=Yaa&page=1&limit=100",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
     expect(screen.queryByText("Kojo Mensah")).not.toBeInTheDocument();
   });
 

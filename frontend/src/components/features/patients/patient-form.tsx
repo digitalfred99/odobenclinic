@@ -40,6 +40,7 @@ function getServerCameraAvailabilitySnapshot() {
 
 const EMPTY_FORM: PatientFormValues = {
   firstName: "",
+  otherName: "",
   lastName: "",
   dateOfBirth: "",
   age: "",
@@ -218,6 +219,7 @@ export function PatientForm({
   const submit = async (values: PatientFormValues) => {
     const succeeded = await onSubmit({
       ...values,
+      otherName: values.otherName?.trim() || undefined,
       age: values.age === "" ? undefined : Number(values.age),
       dateOfBirth: values.dateOfBirth === "" ? undefined : values.dateOfBirth,
       gender: values.gender === "" ? undefined : values.gender,
@@ -249,11 +251,15 @@ export function PatientForm({
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <label htmlFor="firstName" className="text-sm font-medium text-foreground">First name<RequiredMark /></label>
           <Input id="firstName" {...form.register("firstName")} />
           {form.formState.errors.firstName ? <p className="text-sm text-destructive">{form.formState.errors.firstName.message}</p> : null}
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="otherName" className="text-sm font-medium text-foreground">Other name</label>
+          <Input id="otherName" {...form.register("otherName")} />
         </div>
         <div className="space-y-2">
           <label htmlFor="lastName" className="text-sm font-medium text-foreground">Last name<RequiredMark /></label>
