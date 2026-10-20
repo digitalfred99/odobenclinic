@@ -1,6 +1,6 @@
 import { CustomAppError } from "@/lib/errors/customAppError";
 import { ErrorCodes } from "@/lib/errors/errorCodes";
-import { CreatePatientDTO, UpdatePatientDTO } from "@/types/patient.type";
+import { CreatePatientDTO } from "@/types/patient.type";
 import { Gender, MaritalStatus } from "@/database/entities/Patient";
 
 function fail(message: string): never {
@@ -157,4 +157,23 @@ export function validateUpdatedAgeAndDob(merged: { dateOfBirth?: string | null; 
     dateOfBirth: merged.dateOfBirth ?? undefined,
     age: merged.age ?? undefined,
   });
+}
+
+const MIN_PATIENT_YEAR = 2000;
+const MAX_POSITION_IN_YEAR = 999999;
+
+export function validateManualPatientNumber(data: { year?: number; positionInYear?: number }) {
+  const { year, positionInYear } = data;
+  const currentYear = new Date().getUTCFullYear();
+
+  if (year === undefined || !Number.isInteger(year)) fail("year is required and must be a whole number");
+  if (year < MIN_PATIENT_YEAR || year > currentYear) {
+    fail(`year must be between ${MIN_PATIENT_YEAR} and ${currentYear}`);
+  }
+  if (positionInYear === undefined || !Number.isInteger(positionInYear)) {
+    fail("positionInYear is required and must be a whole number");
+  }
+  if (positionInYear < 1 || positionInYear > MAX_POSITION_IN_YEAR) {
+    fail(`positionInYear must be between 1 and ${MAX_POSITION_IN_YEAR}`);
+  }
 }

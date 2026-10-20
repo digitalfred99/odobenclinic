@@ -1,11 +1,11 @@
-import { validateCreatePatient, validatePatientEnum, validateUpdatedAgeAndDob, validateGhCardNumber, validateNhisNumber } from "@/modules/patient/patient.validator";
+import { validateCreatePatient, validatePatientEnum, validateUpdatedAgeAndDob, validateGhCardNumber, validateNhisNumber, validateManualPatientNumber } from "@/modules/patient/patient.validator";
 import { validate as isUUID } from "uuid";
 import { Brackets, In, EntityManager } from "typeorm";
 import { AppDataSource } from "@/database/data-source";
 import { Patient, Gender, MaritalStatus } from "@/database/entities/Patient";
 import { PatientCounter } from "@/database/entities/PatientCounter";
 import { User } from "@/database/entities/User";
-import { CreatePatientDTO, FilterPatientDTO, UpdatePatientDTO } from "@/types/patient.type";
+import { CreatePatientManualDTO, FilterPatientDTO, UpdatePatientDTO } from "@/types/patient.type";
 import { CustomAppError } from "@/lib/errors/customAppError";
 import { ErrorCodes } from "@/lib/errors/errorCodes";
 import { buildPaginationMeta, parsePagination } from "@/lib/http/pagination";
@@ -18,11 +18,18 @@ import {
 } from "@/modules/patient/patient.dedupe";
 import { writeAuditLog } from "@/lib/audit/writeAuditLog";
 import { AuditAction, AuditEntityType } from "@/lib/audit/auditActions";
-import { createWithImages, type ImageFileInput } from "@/lib/storage/createWithImages";
+import { type ImageFileInput } from "@/lib/storage/createWithImages";
 import { getStorageAdapter } from "@/lib/storage/getStorageAdapter";
 import { savePatientPhoto } from "../../utils/helpers/patients/savePatientPhoto";
 import { applyTextCase } from "@/utils/helpers/capitalize";
 import { PATIENT_TEXT_CASE } from "./patient.constants";
+import { formatPatientId } from "@/utils/helpers/patients/formatPatientId";
+
+const patientIdTakenError = (patientId: string) =>
+  new CustomAppError(
+    `Patient ID ${patientId} is already in use`, 409,
+    ErrorCodes.RECORD_ALREADY_EXISTS.code, ErrorCodes.RECORD_ALREADY_EXISTS.label, "patient_id_exists"
+  );
 
 export class PatientService {
 
@@ -138,52 +145,24 @@ export class PatientService {
     return new Date().getUTCFullYear();
   }
 
-  /**
-   * Atomically hands out the next clinic-wide registration position for
-   * `year` and returns it. Must be called from inside the same
-   * transaction that will insert the Patient row. Identical pattern
-   * to (the now-removed) OPDVisit numbering, just triggered on patient
-   * registration instead of every visit:
-   *  1. `orIgnore()` insert creates the counter row for this year if
-   *     it's the first patient registered that year — a no-op
-   *     otherwise, safe if two transactions race to create it.
-   *  2. `setLock("pessimistic_write")` (SELECT ... FOR UPDATE) takes a
-   *     row lock on that year's counter, so a second concurrent
-   *     registration blocks until the first commits — guaranteeing two
-   *     new patients can never receive the same positionInYear.
-   * Positions are never reused: soft-deleting a patient does not roll
-   * this counter back.
-   */
-  private static async nextPositionInYear(manager: EntityManager, year: number): Promise<number> {
+  private static async reservePosition(manager: EntityManager, year: number, position: number) {
     const counterRepo = manager.getRepository(PatientCounter);
-
-    await counterRepo
-      .createQueryBuilder()
-      .insert()
-      .into(PatientCounter)
-      .values({ year, lastPosition: 0 })
-      .orIgnore()
-      .execute();
-
-    const counter = await manager
-      .createQueryBuilder(PatientCounter, "counter")
-      .setLock("pessimistic_write")
-      .where("counter.year = :year", { year })
-      .getOneOrFail();
-
-    const nextPosition = counter.lastPosition + 1;
-
-    await counterRepo.update({ year }, { lastPosition: nextPosition });
-
-    return nextPosition;
+    await counterRepo.createQueryBuilder().insert().into(PatientCounter)
+      .values({ year, lastPosition: 0 }).orIgnore().execute();
+    const counter = await manager.createQueryBuilder(PatientCounter, "counter")
+      .setLock("pessimistic_write").where("counter.year = :year", { year }).getOneOrFail();
+    if (position > counter.lastPosition) {
+      await counterRepo.update({ year }, { lastPosition: position });
+    }
   }
 
   // actorUserId is who's registering the patient (the authenticated
   // receptionist/admin) — required, since it's now stored permanently
   // as Patient.createdBy (distinct from OPDVisit.createdBy, which
   // records who logged each individual visit).
-  static async create(data: CreatePatientDTO, actorUserId: string, image?: ImageFileInput) {
+  static async create(data: CreatePatientManualDTO, actorUserId: string, image?: ImageFileInput) {
     validateCreatePatient(data);
+    validateManualPatientNumber(data);
     data = applyTextCase(data, PATIENT_TEXT_CASE);
 
     if (data.ghCardNumber) data.ghCardNumber = data.ghCardNumber.trim().toUpperCase();
@@ -197,7 +176,7 @@ export class PatientService {
       throw new CustomAppError("No authorized user found to register this patient", 404, ErrorCodes.UNAUTHORIZED_ACCESS.code, ErrorCodes.UNAUTHORIZED_ACCESS.label, "user_not_authorized");
     }
 
-    const persist = (imageUrl?: string) =>
+    const persistOnce = (imageUrl?: string) =>
       db.transaction(async (manager: EntityManager) => {
         await lockPatientIdentity(manager, {
           firstName: data.firstName,
@@ -239,12 +218,24 @@ export class PatientService {
           );
         }
 
-        const year = this.todayYear();
-        const positionInYear = await this.nextPositionInYear(manager, year);
+        const { year, positionInYear } = data;
+        const patientId = formatPatientId(year, positionInYear);
+
+        // No isDeleted filter on purpose: a retired ID must never be reused.
+        const taken = await manager.getRepository(Patient).findOne({
+          where: [{ patientId }, { year, positionInYear }],
+          select: { id: true },
+        });
+        if (taken) throw patientIdTakenError(patientId);
+
+        // For the current year, move the counter past this number.
+        if (year === this.todayYear()) {
+          await this.reservePosition(manager, year, positionInYear);
+        }
 
         const repo = manager.getRepository(Patient);
         const newPatient = repo.create({
-          patientId: `PT-${positionInYear}/${year}`,
+          patientId,
           year,
           positionInYear,
           firstName: data.firstName.trim(),
@@ -273,7 +264,7 @@ export class PatientService {
             action: AuditAction.PATIENT_REGISTERED,
             entityType: AuditEntityType.PATIENT,
             entityId: savedPatient.id,
-            metadata: { patientId: savedPatient.patientId },
+            metadata: { patientId: savedPatient.patientId, manual: true },
           },
           manager
         );
@@ -283,6 +274,19 @@ export class PatientService {
           createdBy: { id: createdBy.id, firstName: createdBy.firstName, lastName: createdBy.lastName },
         };
       });
+
+    const persist = async (imageUrl?: string) => {
+      try {
+        return await persistOnce(imageUrl);
+      } catch (err: any) {
+        const code = err?.code ?? err?.driverError?.code;
+        const detail = String(err?.detail ?? err?.driverError?.detail ?? "");
+        if (code === "23505" && (detail.includes("patientId") || detail.includes("positionInYear"))) {
+          throw patientIdTakenError(formatPatientId(data.year, data.positionInYear));
+        }
+        throw err;
+      }
+    };
 
     if (image) {
       return await savePatientPhoto(image, (imageUrl) => persist(imageUrl));
@@ -298,6 +302,9 @@ export class PatientService {
 
     // Mass-assignment guard: imageUrl is only ever set from an uploaded file.
     delete (data as Record<string, unknown>).imageUrl;
+    for (const key of ["patientId", "year", "positionInYear"]) {
+      delete (data as Record<string, unknown>)[key];
+    }
 
     validatePatientEnum(data);
     validateGhCardNumber(data.ghCardNumber);

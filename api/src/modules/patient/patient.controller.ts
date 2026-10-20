@@ -1,5 +1,5 @@
 import { PatientService } from "./patient.service";
-import type { CreatePatientDTO, UpdatePatientDTO, FilterPatientDTO } from "@/types/patient.type";
+import type { UpdatePatientDTO, FilterPatientDTO, CreatePatientManualDTO } from "@/types/patient.type";
 import type { PaginationQuery } from "@/types/pagination.type";
 import type { ImageFileInput } from "@/lib/storage/createWithImages";
 
@@ -12,7 +12,7 @@ export class PatientController {
     return await PatientService.getPatient(id);
   }
 
-static async createPatient(data: CreatePatientDTO, actorUserId: string, image?: ImageFileInput) {
+static async createPatient(data: CreatePatientManualDTO, actorUserId: string, image?: ImageFileInput) {
   return await PatientService.create(data, actorUserId, image);
 }
 

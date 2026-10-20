@@ -2,7 +2,7 @@ import { extractField } from "@/lib/http/parseFormData";
 import type { ImageFileInput } from "@/lib/storage/createWithImages";
 import { CustomAppError } from "@/lib/errors/customAppError";
 import { ErrorCodes } from "@/lib/errors/errorCodes";
-import type { CreatePatientDTO, UpdatePatientDTO } from "@/types/patient.type";
+import type { CreatePatientManualDTO, UpdatePatientDTO } from "@/types/patient.type";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 // 5 MB image + room for the text fields.
@@ -64,18 +64,19 @@ export async function extractPatientImage(formData: FormData): Promise<ImageFile
   return { fieldName: "imageUrl", buffer, originalName: `patient-photo.${ext}` };
 }
 
-// FormData is all strings: skip blanks, and coerce `age` back to a number.
+// FormData is all strings: skip blanks, and coerce age, year and positionInYear back to numbers.
 function readPatientFields(formData: FormData): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of STRING_FIELDS) {
     const value = extractField(formData, key);
     if (value !== undefined) out[key] = value;
   }
-  const ageRaw = extractField(formData, "age");
-  if (ageRaw !== undefined) {
-    const age = Number(ageRaw);
-    if (!Number.isFinite(age)) throw badRequest("age must be a valid number", "invalid_age");
-    out.age = age;
+  for (const key of ["age", "year", "positionInYear"] as const) {
+    const raw = extractField(formData, key);
+    if (raw === undefined) continue;
+    const num = Number(raw);
+    if (!Number.isFinite(num)) throw badRequest(`${key} must be a valid number`, `invalid_${key}`);
+    out[key] = num;
   }
   return out;
 }
@@ -86,11 +87,11 @@ export const isMultipart = (req: Request) =>
 export async function parseCreatePatientRequest(req: Request) {
   if (!isMultipart(req)) {
     // Backward compatible: plain JSON still works (no image).
-    return { data: (await req.json()) as CreatePatientDTO, image: undefined };
+    return { data: (await req.json()) as CreatePatientManualDTO, image: undefined };
   }
   const formData = await readFormData(req);
   return {
-    data: readPatientFields(formData) as CreatePatientDTO,
+    data: readPatientFields(formData) as CreatePatientManualDTO,
     image: await extractPatientImage(formData),
   };
 }

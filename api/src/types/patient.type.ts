@@ -51,3 +51,9 @@ export type FilterPatientDTO = {
     area?: string;
     patientId?: string;
 };
+
+// Used only by the "add existing patient" endpoint (no OPD).
+export type CreatePatientManualDTO = CreatePatientDTO & {
+    year: number;
+    positionInYear: number;
+};

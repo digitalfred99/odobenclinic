@@ -22,6 +22,7 @@ import type { ImageFileInput } from "@/lib/storage/createWithImages";
 import { applyTextCase } from "@/utils/helpers/capitalize";
 import { PATIENT_TEXT_CASE } from "../patient/patient.constants";
 import { OPD_VISIT_TEXT_CASE } from "../opdVisit/opdVisit.constants";
+import { formatPatientId } from "@/utils/helpers/patients/formatPatientId";
 
 /**
  * Registers a new patient and their first OPD visit in a single request.
@@ -160,11 +161,12 @@ export class PatientWithOpdService {
         const patientRepo = manager.getRepository(Patient);
         const savedPatient = await patientRepo.save(
           patientRepo.create({
-            patientId: `PT-${positionInYear}/${year}`,
+            patientId: formatPatientId(year, positionInYear),
             year,
             positionInYear,
             firstName: patientData.firstName.trim(),
             lastName: patientData.lastName.trim(),
+            otherName: patientData.otherName?.trim(),
             phone: patientData.phone,
             dateOfBirth: patientData.dateOfBirth,
             age: patientData.age,
