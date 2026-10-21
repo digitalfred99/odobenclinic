@@ -1,4 +1,4 @@
-import { validateCreateUser, validatePasswordStrength, validateUserEnum } from "@/modules/user/user.validator";
+import { validateCreateUser, validateEmail, validatePasswordStrength, validatePhone, validateUserEnum } from "@/modules/user/user.validator";
 import { validate as isUUID } from "uuid";
 import { Brackets, In, EntityManager } from "typeorm";
 import { AppDataSource } from "@/database/data-source";
@@ -207,9 +207,9 @@ export class UserService {
 
     const safeData = applyTextCase(UserSanitizer.update(data), USER_TEXT_CASE);
     validateUserEnum(safeData);
-    // A password change via PATCH must meet the same strength bar as one
-    // set at account creation — the previous version only validated
-    // enums on update, so a weak password slipped straight through here.
+    if (safeData.phone !== undefined) validatePhone(safeData.phone);
+    if (safeData.email !== undefined) validateEmail(safeData.email);
+    if (safeData.password !== undefined) validatePasswordStrength(safeData);
     if (safeData.password !== undefined) {
       validatePasswordStrength(safeData);
     }

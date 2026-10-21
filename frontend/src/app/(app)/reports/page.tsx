@@ -260,7 +260,9 @@ function ReportsPageContent() {
         exportLapsed: () => {
           const lapsed = findLapsed((historyQ.data?.rows ?? NO_VISITS).filter((v) => matchesVisit(v, { ...slice, type: "", weekday: null })), today);
           void exportCsv(["OPD No.", "Visits", "Last seen", "Days since last visit", "Age", "Sex", "Area"],
-            lapsed.map((p) => [p.pid.replace(/^PT-/, ""), p.visits, p.lastDate, p.daysSince, p.age ?? "", p.sex, p.area]), `lapsed-patients_${today}.csv`);
+            lapsed.map((p) => [p.pid.replace(/^PT-/, ""), p.visits, p.lastDate, p.daysSince, p.age ?? "", p.sex, p.area]),
+            `lapsed-patients_${today}.csv`,
+            { title: "Lapsed patient list", subtitle: "Patients with no recorded visit in the last 90 days", generatedAt: format(new Date(), "d MMM yyyy, HH:mm") });
         },
       },
     };
@@ -384,18 +386,25 @@ function ReportsPageContent() {
       const table = rows.map((row) => selected.map((f) => formatCell(fieldValue(row, kind, f.key))));
       const type = kind === "visits" ? "opd-visits" : "patients";
       const range = { from: period.from, to: period.to };
+      const exportContext = buildContext();
+      const reportTitle = kind === "visits" ? "OPD visit report" : "Patient registration report";
+      const reportSubtitle = `${label}  |  ${rows.length.toLocaleString()} rows${filterSummary ? `  |  ${filterSummary}` : ""}`;
 
       if (action === "print") {
         setPrint({ kind, fields: selected.map((f) => f.key), rows });
         window.setTimeout(() => window.print(), 100);
       } else if (action === "excel") {
-        await exportWorkbook(buildContext(), { name: kind === "visits" ? "OPD visits" : "Patient registrations", headers, rows: table }, getReportFilename(type, range, "xlsx"));
+        await exportWorkbook(exportContext, { name: kind === "visits" ? "OPD visits" : "Patient registrations", headers, rows: table }, getReportFilename(type, range, "xlsx"));
       } else if (action === "csv") {
-        await exportCsv(headers, table, getReportFilename(type, range, "csv"));
+        await exportCsv(headers, table, getReportFilename(type, range, "csv"), {
+          title: reportTitle,
+          subtitle: `${label}${filterSummary ? `  |  ${filterSummary}` : ""}`,
+          generatedAt: exportContext.generatedAt,
+        });
       } else {
         await exportRecordsPdf({
-          title: kind === "visits" ? "OPD visit report" : "Patient registration report",
-          subtitle: `${label}  |  ${rows.length.toLocaleString()} rows${filterSummary ? `  |  ${filterSummary}` : ""}`,
+          title: reportTitle,
+          subtitle: reportSubtitle,
           headers, rows: table, filename: getReportFilename(type, range, "pdf"),
         });
       }
@@ -583,10 +592,15 @@ function ReportsPageContent() {
 
       {print ? (
         <div className="hidden print:block">
-          <p className="font-semibold">{FACILITY_NAME}</p>
-          <p className="text-sm">{print.kind === "visits" ? "OPD visit report" : "Patient registration report"} | {label}{filterSummary ? ` | ${filterSummary}` : ""} | {print.rows.length.toLocaleString()} rows</p>
+          <header className="mb-4 border-b-2 border-primary pb-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Clinic report</p>
+            <h1 className="mt-1 text-xl font-bold">{FACILITY_NAME}</h1>
+            <p className="mt-1 text-sm font-semibold">{print.kind === "visits" ? "OPD visit report" : "Patient registration report"}</p>
+            <p className="mt-1 text-xs">{label}{filterSummary ? ` | ${filterSummary}` : ""} | {print.rows.length.toLocaleString()} rows</p>
+            <p className="mt-1 text-xs text-muted-foreground">Generated {format(new Date(), "d MMM yyyy, HH:mm")}</p>
+          </header>
           <table className="mt-3 w-full text-left text-xs">
-            <thead><tr className="border-b border-border">{print.fields.map((f) => <th key={f} className="px-2 py-2 font-semibold">{getReportFields(print.kind).find((o) => o.key === f)?.label}</th>)}</tr></thead>
+            <thead><tr className="border-b border-border">{print.fields.map((f) => <th key={f} className="bg-primary px-2 py-2 font-semibold text-primary-foreground">{getReportFields(print.kind).find((o) => o.key === f)?.label}</th>)}</tr></thead>
             <tbody>
               {print.rows.map((row, i) => (
                 <tr key={i} className="border-b border-border">
@@ -601,9 +615,9 @@ function ReportsPageContent() {
 
       <FilterSheet open={filtersOpen} onOpenChange={setFiltersOpen} slice={slice} onChange={setSlice} vocab={vocab} />
 
-      <Dialog.Root open={rangeDialogOpen} onOpenChange={setRangeDialogOpen}>
+      <Dialog.Root open={rangeDialogOpen} modal onOpenChange={setRangeDialogOpen}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
+          <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
           <Dialog.Popup className="fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xl outline-none print:hidden">
             <Dialog.Title className="text-lg font-semibold text-foreground">Choose date range</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">Select the first and last date to include in this report.</Dialog.Description>
@@ -625,9 +639,9 @@ function ReportsPageContent() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <Dialog.Root open={saveViewOpen} onOpenChange={(open) => { setSaveViewOpen(open); if (!open) setViewName(""); }}>
+      <Dialog.Root open={saveViewOpen} modal onOpenChange={(open) => { setSaveViewOpen(open); if (!open) setViewName(""); }}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
+          <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
           <Dialog.Popup className="fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xl outline-none print:hidden">
             <Dialog.Title className="text-lg font-semibold text-foreground">Save this report view</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -652,9 +666,9 @@ function ReportsPageContent() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <Dialog.Root open={fieldAction !== null} onOpenChange={(open) => { if (!open) setFieldAction(null); }}>
+      <Dialog.Root open={fieldAction !== null} modal onOpenChange={(open) => { if (!open) setFieldAction(null); }}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
+          <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
           <Dialog.Popup className="fixed left-1/2 top-1/2 z-[101] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xl outline-none print:hidden">
             <Dialog.Title className="text-lg font-semibold text-foreground">Choose fields to {fieldAction === "print" ? "print" : "export"}</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">

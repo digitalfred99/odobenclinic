@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api";
 import PatientDetailPage from "./page";
 
@@ -31,6 +31,14 @@ describe("PatientDetailPage", () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
     push.mockReset();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
   });
 
   it("shows the matching detail skeleton while the patient loads", () => {
@@ -90,6 +98,60 @@ describe("PatientDetailPage", () => {
 
     const photo = await screen.findByRole("img", { name: "Patient photo of Ama Mensah" });
     expect(photo).toHaveAttribute("src", expect.stringContaining("/uploads/patients/ama.jpg"));
+  });
+
+  it("saves only editable patient fields as JSON and enables photo replacement", async () => {
+    const patient = {
+      id: "patient-uuid",
+      firstName: "Ama",
+      lastName: "Mensah",
+      patientId: "PT-12/2026",
+      dateOfBirth: "1990-04-15",
+      age: 36,
+      phone: "0240000000",
+      ghCardNumber: "GHA-123456789-0",
+      nhisNumber: "56738945",
+      gender: "female",
+      maritalStatus: "married",
+      region: "Greater Accra",
+      district: "Accra Metro",
+      town: "Accra",
+      area: "Osu",
+      imageUrl: "/uploads/patients/ama.jpg",
+    };
+    vi.mocked(apiRequest).mockResolvedValueOnce(patient);
+    vi.mocked(apiRequest).mockResolvedValueOnce({ opdVisits: [], pagination: { total: 0, totalPages: 1 } });
+    vi.mocked(apiRequest).mockResolvedValueOnce(patient);
+    vi.mocked(apiRequest).mockResolvedValueOnce(patient);
+
+    renderPatientDetail();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit patient" }));
+    expect(screen.getByRole("img", { name: "Current patient photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Take new photo" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^Phone/), { target: { value: "0241111111" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await screen.findByText("Patient details updated successfully.");
+    const patchCall = vi.mocked(apiRequest).mock.calls.find(([, options]) => options?.method === "PATCH");
+    expect(patchCall?.[0]).toBe("/patients/patient-uuid");
+    expect(JSON.parse(patchCall?.[1]?.body as string)).toEqual({
+      firstName: "Ama",
+      lastName: "Mensah",
+      otherName: null,
+      dateOfBirth: "1990-04-15",
+      age: 36,
+      phone: "0241111111",
+      ghCardNumber: "GHA-123456789-0",
+      nhisNumber: "56738945",
+      region: "Greater Accra",
+      district: "Accra Metro",
+      town: "Accra",
+      area: "Osu",
+      gender: "female",
+      maritalStatus: "married",
+    });
   });
 
   it("shows visit remarks and paginates the patient's attendance history", async () => {

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { toLocalInputDate } from "@/lib/dates";
 
 vi.mock("next/dynamic", () => ({
   default: () => () => null,
@@ -37,6 +38,91 @@ describe("PatientForm defaults and guidance", () => {
     render(<PatientForm onSubmit={vi.fn()} />);
 
     expect(screen.getByLabelText("Other name")).toBeInTheDocument();
+  });
+
+  it("reports field edits, including cleared values, so server errors can be cleared", () => {
+    const onFieldChange = vi.fn();
+    render(<PatientForm onSubmit={vi.fn()} onFieldChange={onFieldChange} />);
+
+    fireEvent.change(screen.getByLabelText(/^First name/), { target: { value: "Ama" } });
+    expect(onFieldChange).toHaveBeenCalledWith("firstName", "Ama");
+
+    onFieldChange.mockClear();
+    fireEvent.change(screen.getByLabelText(/^First name/), { target: { value: "" } });
+    expect(onFieldChange).toHaveBeenCalledWith("firstName", "");
+  });
+
+  it("requires confirmation before clearing all registration details", () => {
+    const onValuesChange = vi.fn();
+    render(<PatientForm onSubmit={vi.fn()} onValuesChange={onValuesChange} enablePhoto />);
+
+    fireEvent.change(screen.getByLabelText(/^First name/), { target: { value: "Ama" } });
+    fireEvent.click(screen.getByRole("button", { name: "Clear form" }));
+    expect(screen.getByRole("dialog", { name: "Clear registration form?" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^First name/)).toHaveValue("Ama");
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(screen.queryByRole("dialog", { name: "Clear registration form?" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^First name/)).toHaveValue("");
+    expect(onValuesChange).toHaveBeenLastCalledWith(expect.objectContaining({ firstName: "" }));
+  });
+
+  it("shows the existing photo and replacement controls in edit mode", () => {
+    render(
+      <PatientForm
+        onSubmit={vi.fn()}
+        initialValues={{ firstName: "Ama", lastName: "Mensah", gender: "female", maritalStatus: "single", age: 36 }}
+        existingPhotoUrl="/uploads/patients/ama.jpg"
+        enablePhoto
+      />
+    );
+
+    expect(screen.getByRole("img", { name: "Current patient photo" })).toHaveAttribute(
+      "src",
+      expect.stringContaining("/uploads/patients/ama.jpg")
+    );
+    expect(screen.getByRole("button", { name: "Take new photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload new photo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear form" })).not.toBeInTheDocument();
+  });
+
+  it("defaults the OPD visit date to local today and places visit details before the photo section", () => {
+    render(<PatientForm onSubmit={vi.fn()} enablePhoto variant="with-opd" />);
+
+    const visitDate = screen.getByLabelText(/^Visit date/);
+    expect(visitDate).toHaveValue(toLocalInputDate());
+    expect(visitDate).toHaveAttribute("max", toLocalInputDate());
+    expect(screen.getByLabelText(/^Remarks/)).toBeInTheDocument();
+    expect(
+      visitDate.compareDocumentPosition(screen.getByRole("heading", { name: "Patient photo (optional)" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("offers a manual clinic-book number preview without visit fields", () => {
+    render(<PatientForm onSubmit={vi.fn()} variant="clinic-record" />);
+
+    const year = screen.getByLabelText(/Year/);
+    const position = screen.getByLabelText(/Number in year/);
+    expect(year).toHaveValue(new Date().getFullYear());
+    expect(screen.queryByLabelText(/^Visit date/)).not.toBeInTheDocument();
+
+    fireEvent.change(position, { target: { value: "45" } });
+    expect(screen.getByText("PT-45/" + new Date().getFullYear())).toBeInTheDocument();
+  });
+
+  it("highlights both manual-number fields after a duplicate ID response", () => {
+    render(
+      <PatientForm
+        onSubmit={vi.fn()}
+        variant="clinic-record"
+        manualNumberError="This patient number is already in use."
+      />
+    );
+
+    expect(screen.getByLabelText(/Year/)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText(/Number in year/)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("This patient number is already in use.");
   });
 
   it("allows a user to type a custom district", () => {

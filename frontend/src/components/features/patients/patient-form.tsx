@@ -4,19 +4,25 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Controller, useForm, useWatch, type FieldErrors, type Resolver } from "react-hook-form";
-import { Camera, ImagePlus, RefreshCw, X } from "lucide-react";
+import { Dialog } from "@base-ui/react/dialog";
+import { Camera, ImagePlus, RefreshCw, RotateCcw, X } from "lucide-react";
 import type { ZodIssue } from "zod";
-import { patientFormSchema, type PatientFormValues } from "@/schemas/patient";
+import {
+  clinicRecordPatientFormSchema,
+  patientFormSchema,
+  patientWithOpdFormSchema,
+  type PatientFormValues,
+} from "@/schemas/patient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { GhCardNumberInput, NhisNumberInput } from "@/components/ui/patient-identifier-inputs";
 import { LocationCombobox } from "@/components/ui/location-combobox";
 import { cn } from "@/lib/utils";
-import { calculateAge } from "@/lib/dates";
+import { calculateAge, toLocalInputDate } from "@/lib/dates";
 import { sanitizePhoneNumber } from "@/lib/phone";
 import { usePatientLocationCache } from "@/lib/patient-location-cache";
-import { preparePatientPhoto, validatePatientPhoto } from "@/lib/patient-photo";
+import { preparePatientPhoto, resolvePatientPhotoUrl, validatePatientPhoto } from "@/lib/patient-photo";
 import {
   GHANA_REGIONS,
   getAreaSuggestions,
@@ -53,6 +59,10 @@ const EMPTY_FORM: PatientFormValues = {
   area: "",
   gender: "",
   maritalStatus: "",
+  visitDate: "",
+  visitRemarks: "",
+  year: "",
+  positionInYear: "",
 };
 
 const NEW_PATIENT_DEFAULTS: PatientFormValues = {
@@ -62,34 +72,66 @@ const NEW_PATIENT_DEFAULTS: PatientFormValues = {
   town: "Odoben",
 };
 
+type PatientFormVariant = "with-opd" | "clinic-record" | "edit";
+
+function getPatientFormDefaults(variant: PatientFormVariant): PatientFormValues {
+  const today = toLocalInputDate();
+  return {
+    ...(variant === "edit" ? EMPTY_FORM : NEW_PATIENT_DEFAULTS),
+    ...(variant === "with-opd" ? { visitDate: today } : {}),
+    ...(variant === "clinic-record" ? { year: today.slice(0, 4) } : {}),
+  };
+}
+
 function RequiredMark() {
   return <span aria-hidden="true" className="ml-1 text-destructive">*</span>;
 }
 
 export function PatientForm({
   initialValues,
+  initialPhoto = null,
+  existingPhotoUrl,
   onSubmit,
+  onValuesChange,
+  variant,
   submitLabel = "Save patient",
   clearOnSuccess = false,
   enablePhoto = false,
   photoError,
+  manualNumberError,
+  serverFieldErrors,
+  onFieldChange,
+  onManualNumberChange,
   onPhotoChange,
   className,
 }: {
   initialValues?: Partial<PatientFormValues>;
+  initialPhoto?: File | null;
+  existingPhotoUrl?: string | null;
   onSubmit: (values: PatientFormValues, photo: File | null) => Promise<boolean | void> | boolean | void;
+  onValuesChange?: (values: PatientFormValues) => void;
+  variant?: PatientFormVariant;
   submitLabel?: string;
   clearOnSuccess?: boolean;
   enablePhoto?: boolean;
   photoError?: string | null;
-  onPhotoChange?: () => void;
+  manualNumberError?: string | null;
+  serverFieldErrors?: Partial<Record<keyof PatientFormValues, string>>;
+  onFieldChange?: (field: keyof PatientFormValues, value: string) => void;
+  onManualNumberChange?: () => void;
+  onPhotoChange?: (photo?: File | null) => void;
   className?: string;
 }) {
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const formVariant = variant ?? (initialValues ? "edit" : "with-opd");
+  const localToday = toLocalInputDate();
+  const [photo, setPhoto] = useState<File | null>(initialPhoto);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(() =>
+    initialPhoto ? URL.createObjectURL(initialPhoto) : null
+  );
   const [localPhotoError, setLocalPhotoError] = useState<string | null>(null);
   const [isPreparingPhoto, setIsPreparingPhoto] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
   const { locations: savedLocations, status: locationSyncStatus } = usePatientLocationCache();
   const cameraAvailable = useSyncExternalStore(
     subscribeToCameraAvailability,
@@ -101,12 +143,17 @@ export function PatientForm({
 
   const form = useForm<PatientFormValues>({
     defaultValues: {
-      ...(initialValues ? EMPTY_FORM : NEW_PATIENT_DEFAULTS),
+      ...getPatientFormDefaults(formVariant),
       ...initialValues,
       phone: sanitizePhoneNumber(initialValues?.phone ?? EMPTY_FORM.phone ?? ""),
     },
     resolver: (async (values) => {
-      const result = patientFormSchema.safeParse(values);
+      const schema = formVariant === "with-opd"
+        ? patientWithOpdFormSchema
+        : formVariant === "clinic-record"
+          ? clinicRecordPatientFormSchema
+          : patientFormSchema;
+      const result = schema.safeParse(values);
 
       if (result.success) {
         return {
@@ -131,16 +178,31 @@ export function PatientForm({
         errors: errors as FieldErrors<PatientFormValues>,
       } as unknown as ReturnType<Resolver<PatientFormValues>>;
     }) as Resolver<PatientFormValues>,
+    mode: "onSubmit",
+    reValidateMode: "onChange",
   });
 
   const dateOfBirth = useWatch({ control: form.control, name: "dateOfBirth" });
+  const formValues = useWatch({ control: form.control });
   const ageValue = useWatch({ control: form.control, name: "age" });
+  const yearValue = useWatch({ control: form.control, name: "year" });
+  const positionInYearValue = useWatch({ control: form.control, name: "positionInYear" });
   const regionValue = useWatch({ control: form.control, name: "region" });
   const districtValue = useWatch({ control: form.control, name: "district" });
   const townValue = useWatch({ control: form.control, name: "town" });
+  useEffect(() => {
+    if (!onValuesChange) return;
+    onValuesChange(formValues as PatientFormValues);
+  }, [formValues, onValuesChange]);
+
   const districtSuggestions = getDistrictSuggestions(savedLocations, regionValue ?? "");
   const townSuggestions = getTownSuggestions(savedLocations, regionValue ?? "", districtValue ?? "");
   const areaSuggestions = getAreaSuggestions(savedLocations, regionValue ?? "", districtValue ?? "", townValue ?? "");
+  const previewYear = String(yearValue ?? "").trim();
+  const previewPosition = String(positionInYearValue ?? "").trim();
+  const patientIdPreview = /^\d{4}$/.test(previewYear) && /^\d{1,6}$/.test(previewPosition)
+    ? `PT-${Number(previewPosition)}/${previewYear}`
+    : null;
 
   useEffect(() => () => {
     if (photoPreviewUrl) {
@@ -164,20 +226,29 @@ export function PatientForm({
     setPhotoPreviewUrl(nextPhoto ? URL.createObjectURL(nextPhoto) : null);
     setLocalPhotoError(null);
     setIsPreparingPhoto(false);
-    onPhotoChange?.();
+    onPhotoChange?.(nextPhoto);
   }, [onPhotoChange]);
 
   const openFilePicker = useCallback(() => fileInputRef.current?.click(), []);
-  const closeCamera = useCallback(() => setCameraOpen(false), []);
+  const closeCamera = useCallback(() => setCameraOpen(false), [setCameraOpen]);
   const useCapturedPhoto = useCallback((capturedPhoto: File) => {
     uploadRequestRef.current += 1;
     selectPhoto(capturedPhoto);
     setCameraOpen(false);
-  }, [selectPhoto]);
+  }, [selectPhoto, setCameraOpen]);
   const removePhoto = useCallback(() => {
     uploadRequestRef.current += 1;
     selectPhoto(null);
   }, [selectPhoto]);
+
+  const clearForm = () => {
+    const defaults = getPatientFormDefaults(formVariant);
+    form.reset(defaults);
+    onValuesChange?.(defaults);
+    selectPhoto(null);
+    setLocalPhotoError(null);
+    setClearConfirmationOpen(false);
+  };
 
   const handleUpload = async (file: File | undefined) => {
     if (!file) {
@@ -231,10 +302,16 @@ export function PatientForm({
       district: values.district === "" ? undefined : values.district,
       town: values.town === "" ? undefined : values.town,
       area: values.area === "" ? undefined : values.area,
+      visitDate: values.visitDate === "" ? undefined : values.visitDate,
+      visitRemarks: values.visitRemarks?.trim() || undefined,
+      year: values.year === "" || values.year === undefined ? undefined : Number(values.year),
+      positionInYear: values.positionInYear === "" || values.positionInYear === undefined
+        ? undefined
+        : Number(values.positionInYear),
     }, photo);
 
     if (clearOnSuccess && succeeded !== false) {
-      form.reset(NEW_PATIENT_DEFAULTS);
+      form.reset(getPatientFormDefaults(formVariant));
       selectPhoto(null);
     }
   };
@@ -242,20 +319,49 @@ export function PatientForm({
   return (
     <form
       onSubmit={form.handleSubmit(submit)}
+      onChangeCapture={(event) => {
+        const target = event.target;
+        if (
+          !(target instanceof HTMLInputElement)
+          && !(target instanceof HTMLSelectElement)
+          && !(target instanceof HTMLTextAreaElement)
+        ) {
+          return;
+        }
+        if (!Object.prototype.hasOwnProperty.call(EMPTY_FORM, target.name)) {
+          return;
+        }
+        onFieldChange?.(target.name as keyof PatientFormValues, target.value);
+      }}
       className={cn("space-y-7 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6", className)}
     >
-      <div>
-        <h3 className="text-base font-semibold text-foreground">Personal details</h3>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Required fields are marked with an asterisk. Date of birth or age is required.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Personal details</h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Required fields are marked with an asterisk. Date of birth or age is required.
+          </p>
+        </div>
+        {enablePhoto && formVariant !== "edit" ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            disabled={form.formState.isSubmitting || isPreparingPhoto}
+            onClick={() => setClearConfirmationOpen(true)}
+          >
+            <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
+            Clear form
+          </Button>
+        ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <label htmlFor="firstName" className="text-sm font-medium text-foreground">First name<RequiredMark /></label>
-          <Input id="firstName" {...form.register("firstName")} />
+          <Input id="firstName" aria-invalid={Boolean(form.formState.errors.firstName || serverFieldErrors?.firstName)} {...form.register("firstName")} />
           {form.formState.errors.firstName ? <p className="text-sm text-destructive">{form.formState.errors.firstName.message}</p> : null}
+          {serverFieldErrors?.firstName ? <p className="text-sm text-destructive">{serverFieldErrors.firstName}</p> : null}
         </div>
         <div className="space-y-2">
           <label htmlFor="otherName" className="text-sm font-medium text-foreground">Other name</label>
@@ -263,8 +369,9 @@ export function PatientForm({
         </div>
         <div className="space-y-2">
           <label htmlFor="lastName" className="text-sm font-medium text-foreground">Last name<RequiredMark /></label>
-          <Input id="lastName" {...form.register("lastName")} />
+          <Input id="lastName" aria-invalid={Boolean(form.formState.errors.lastName || serverFieldErrors?.lastName)} {...form.register("lastName")} />
           {form.formState.errors.lastName ? <p className="text-sm text-destructive">{form.formState.errors.lastName.message}</p> : null}
+          {serverFieldErrors?.lastName ? <p className="text-sm text-destructive">{serverFieldErrors.lastName}</p> : null}
         </div>
       </div>
 
@@ -274,6 +381,7 @@ export function PatientForm({
           <Input
             id="dateOfBirth"
             type="date"
+            aria-invalid={Boolean(form.formState.errors.dateOfBirth || serverFieldErrors?.dateOfBirth)}
             {...form.register("dateOfBirth", {
               onChange: (event) => {
                 if (!event.currentTarget.value && dateOfBirth) {
@@ -282,17 +390,29 @@ export function PatientForm({
               },
             })}
           />
+          {serverFieldErrors?.phone ? <p className="text-sm text-destructive">{serverFieldErrors.phone}</p> : null}
           {form.formState.errors.dateOfBirth ? <p className="text-sm text-destructive">{form.formState.errors.dateOfBirth.message}</p> : null}
+          {serverFieldErrors?.dateOfBirth ? <p className="text-sm text-destructive">{serverFieldErrors.dateOfBirth}</p> : null}
           <p className="text-xs text-muted-foreground">Date of birth or age is required.</p>
         </div>
         <div className="space-y-2">
           <label htmlFor="age" className="text-sm font-medium text-foreground">Age<RequiredMark /></label>
-          <Input id="age" type="number" min={0} max={130} placeholder="manual age" {...form.register("age")} />
+          <Input
+            id="age"
+            type="number"
+            min={0}
+            max={130}
+            step={1}
+            placeholder="manual age"
+            aria-invalid={Boolean(form.formState.errors.age || serverFieldErrors?.age)}
+            {...form.register("age")}
+          />
           {typeof ageValue !== "undefined" && ageValue !== "" ? (
             <p className="text-xs text-muted-foreground">
               {dateOfBirth ? `Auto-calculated age: ${ageValue}` : "Manually entered"}
             </p>
           ) : <p className="text-xs text-muted-foreground">Enter a date of birth or an age.</p>}
+          {serverFieldErrors?.age ? <p className="text-sm text-destructive">{serverFieldErrors.age}</p> : null}
         </div>
       </div>
 
@@ -312,6 +432,7 @@ export function PatientForm({
             <option value="female">Female</option>
           </select>
           {form.formState.errors.gender ? <p id="gender-error" className="text-sm text-destructive">{form.formState.errors.gender.message}</p> : null}
+          {serverFieldErrors?.gender ? <p className="text-sm text-destructive">{serverFieldErrors.gender}</p> : null}
         </div>
         <div className="space-y-2">
           <label htmlFor="maritalStatus" className="text-sm font-medium text-foreground">Marital status<RequiredMark /></label>
@@ -332,6 +453,7 @@ export function PatientForm({
           {form.formState.errors.maritalStatus ? (
             <p id="maritalStatus-error" className="text-sm text-destructive">{form.formState.errors.maritalStatus.message}</p>
           ) : null}
+          {serverFieldErrors?.maritalStatus ? <p className="text-sm text-destructive">{serverFieldErrors.maritalStatus}</p> : null}
         </div>
       </div>
 
@@ -360,6 +482,7 @@ export function PatientForm({
                 )}
               />
               {form.formState.errors.ghCardNumber ? <p id="ghCardNumber-error" className="text-sm text-destructive">{form.formState.errors.ghCardNumber.message}</p> : null}
+              {serverFieldErrors?.ghCardNumber ? <p className="text-sm text-destructive">{serverFieldErrors.ghCardNumber}</p> : null}
             </div>
             <div className="space-y-2">
               <label htmlFor="nhisNumber" className="text-sm font-medium text-foreground">NHIS number</label>
@@ -379,6 +502,7 @@ export function PatientForm({
                 )}
               />
               {form.formState.errors.nhisNumber ? <p id="nhisNumber-error" className="text-sm text-destructive">{form.formState.errors.nhisNumber.message}</p> : null}
+              {serverFieldErrors?.nhisNumber ? <p className="text-sm text-destructive">{serverFieldErrors.nhisNumber}</p> : null}
             </div>
           </div>
         </div>
@@ -494,11 +618,106 @@ export function PatientForm({
         </p>
       ) : null}
 
+      {formVariant === "clinic-record" ? (
+        <section className="space-y-4 border-t border-border pt-5" aria-labelledby="manual-patient-number-heading">
+          <div>
+            <h3 id="manual-patient-number-heading" className="text-base font-semibold text-foreground">Paper-book patient number</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Enter the year and number shown in the clinic record.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="year" className="text-sm font-medium text-foreground">Year<RequiredMark /></label>
+              <Input
+                id="year"
+                type="number"
+                min={2000}
+                max={localToday.slice(0, 4)}
+                step={1}
+                inputMode="numeric"
+                aria-required="true"
+                aria-invalid={Boolean(manualNumberError || form.formState.errors.year || serverFieldErrors?.year)}
+                aria-describedby={manualNumberError ? "manual-patient-number-error" : form.formState.errors.year ? "year-error" : undefined}
+                className={manualNumberError ? "border-destructive" : undefined}
+                {...form.register("year", { onChange: onManualNumberChange })}
+              />
+              {form.formState.errors.year ? <p id="year-error" className="text-sm text-destructive">{form.formState.errors.year.message}</p> : null}
+              {serverFieldErrors?.year ? <p className="text-sm text-destructive">{serverFieldErrors.year}</p> : null}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="positionInYear" className="text-sm font-medium text-foreground">Number in year<RequiredMark /></label>
+              <Input
+                id="positionInYear"
+                type="number"
+                min={1}
+                max={999999}
+                step={1}
+                inputMode="numeric"
+                aria-required="true"
+                aria-invalid={Boolean(manualNumberError || form.formState.errors.positionInYear || serverFieldErrors?.positionInYear)}
+                aria-describedby={manualNumberError ? "manual-patient-number-error" : form.formState.errors.positionInYear ? "positionInYear-error" : undefined}
+                className={manualNumberError ? "border-destructive" : undefined}
+                {...form.register("positionInYear", { onChange: onManualNumberChange })}
+              />
+              {form.formState.errors.positionInYear ? <p id="positionInYear-error" className="text-sm text-destructive">{form.formState.errors.positionInYear.message}</p> : null}
+              {serverFieldErrors?.positionInYear ? <p className="text-sm text-destructive">{serverFieldErrors.positionInYear}</p> : null}
+            </div>
+          </div>
+          {manualNumberError ? <p id="manual-patient-number-error" className="text-sm text-destructive" role="alert">{manualNumberError}</p> : null}
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground" aria-live="polite">
+            Patient ID preview: <span className="font-mono font-semibold">{patientIdPreview ?? "Enter year and number in year"}</span>
+          </p>
+        </section>
+      ) : null}
+
+      {formVariant === "with-opd" ? (
+        <section className="space-y-4 border-t border-border pt-5" aria-labelledby="visit-details-heading">
+          <div>
+            <h3 id="visit-details-heading" className="text-base font-semibold text-foreground">Visit details</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Record the date and any notes for the patient’s first OPD visit.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="visitDate" className="text-sm font-medium text-foreground">Visit date<RequiredMark /></label>
+              <Input
+                id="visitDate"
+                type="date"
+                max={localToday}
+                aria-required="true"
+                aria-invalid={Boolean(form.formState.errors.visitDate || serverFieldErrors?.visitDate)}
+                aria-describedby={[
+                  form.formState.errors.visitDate ? "visitDate-error" : "",
+                  serverFieldErrors?.visitDate ? "visitDate-server-error" : "",
+                ].filter(Boolean).join(" ") || undefined}
+                {...form.register("visitDate")}
+              />
+              {form.formState.errors.visitDate ? <p id="visitDate-error" className="text-sm text-destructive">{form.formState.errors.visitDate.message}</p> : null}
+              {serverFieldErrors?.visitDate ? <p id="visitDate-server-error" className="text-sm text-destructive">{serverFieldErrors.visitDate}</p> : null}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="visitRemarks" className="text-sm font-medium text-foreground">Remarks <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <textarea
+                id="visitRemarks"
+                rows={3}
+                {...form.register("visitRemarks")}
+                aria-invalid={Boolean(serverFieldErrors?.visitRemarks)}
+                aria-describedby={serverFieldErrors?.visitRemarks ? "visitRemarks-error" : undefined}
+                className="flex min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+              {serverFieldErrors?.visitRemarks ? <p id="visitRemarks-error" className="text-sm text-destructive">{serverFieldErrors.visitRemarks}</p> : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {enablePhoto ? (
         <section className="space-y-3 rounded-xl border border-border p-4" aria-labelledby="patient-photo-heading">
           <div>
             <h3 id="patient-photo-heading" className="text-sm font-semibold text-foreground">Patient photo <span className="font-normal text-muted-foreground">(optional)</span></h3>
-            <p className="mt-1 text-sm text-muted-foreground">Take a photo or upload a JPEG, PNG, or WebP image (up to 5 MB).</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formVariant === "edit" && existingPhotoUrl
+                ? "Take or upload a new photo to replace the current one. Leave it unchanged to keep the current photo."
+                : "Take a photo or upload a JPEG, PNG, or WebP image (up to 5 MB)."}
+            </p>
           </div>
           {photo ? (
             <div className="flex flex-wrap items-center gap-4">
@@ -510,40 +729,53 @@ export function PatientForm({
                   <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />Retake
                 </Button>
                 <Button type="button" variant="outline" className="min-h-11" onClick={removePhoto}>
-                  <X className="mr-2 h-4 w-4" aria-hidden="true" />Remove
+                  <X className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {formVariant === "edit" && existingPhotoUrl ? "Undo replacement" : "Remove"}
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="min-h-11"
-                disabled={!cameraAvailable}
-                onClick={() => setCameraOpen(true)}
-              >
-                <Camera className="mr-2 h-4 w-4" aria-hidden="true" />Take photo
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-11"
-                disabled={isPreparingPhoto}
-                onClick={openFilePicker}
-              >
-                <ImagePlus className="mr-2 h-4 w-4" aria-hidden="true" />
-                {isPreparingPhoto ? "Preparing photo…" : "Upload photo"}
-              </Button>
-              <input
-                ref={fileInputRef}
-                id="patient-photo-upload"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,.heic,.heif"
-                className="sr-only"
-                aria-label="Upload patient photo"
-                onChange={(event) => { void handleUpload(event.currentTarget.files?.[0]); }}
-              />
+            <div className="flex flex-wrap items-center gap-4">
+              {existingPhotoUrl ? (
+                <Image
+                  src={resolvePatientPhotoUrl(existingPhotoUrl)}
+                  alt="Current patient photo"
+                  width={224}
+                  height={168}
+                  unoptimized
+                  className="aspect-[4/3] w-28 rounded-lg border border-border object-cover"
+                />
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11"
+                  disabled={!cameraAvailable}
+                  onClick={() => setCameraOpen(true)}
+                >
+                  <Camera className="mr-2 h-4 w-4" aria-hidden="true" />{existingPhotoUrl ? "Take new photo" : "Take photo"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  disabled={isPreparingPhoto}
+                  onClick={openFilePicker}
+                >
+                  <ImagePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {isPreparingPhoto ? "Preparing photo…" : existingPhotoUrl ? "Upload new photo" : "Upload photo"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  id="patient-photo-upload"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  aria-label="Upload patient photo"
+                  onChange={(event) => { void handleUpload(event.currentTarget.files?.[0]); }}
+                />
+              </div>
             </div>
           )}
           {!cameraAvailable ? (
@@ -567,6 +799,25 @@ export function PatientForm({
           onUsePhoto={useCapturedPhoto}
         />
       ) : null}
+      <Dialog.Root open={clearConfirmationOpen} modal onOpenChange={setClearConfirmationOpen}>
+        <Dialog.Portal>
+          <Dialog.Backdrop forceRender className="pointer-events-auto touch-none fixed inset-0 z-[110] bg-foreground/50 backdrop-blur-sm" />
+          <Dialog.Popup className="fixed left-1/2 top-1/2 z-[111] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xl outline-none">
+            <Dialog.Title className="text-lg font-semibold text-foreground">Clear registration form?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">
+              This clears all entered patient and visit details and removes the selected photo. You can’t undo this.
+            </Dialog.Description>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="secondary" onClick={() => setClearConfirmationOpen(false)}>
+                Keep details
+              </Button>
+              <Button type="button" variant="destructive" onClick={clearForm}>
+                Clear all
+              </Button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
     </form>
   );
 }

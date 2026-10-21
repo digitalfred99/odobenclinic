@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { patientFormSchema } from "./patient";
+import { toLocalInputDate } from "@/lib/dates";
+import {
+  clinicRecordPatientFormSchema,
+  patientFormSchema,
+  patientWithOpdFormSchema,
+} from "./patient";
 
 const minimumPatient = {
   firstName: "Ama",
@@ -80,6 +85,42 @@ describe("patient form validation", () => {
     expect(patientFormSchema.safeParse({
       ...minimumPatient,
       age: "adult",
+    }).success).toBe(false);
+  });
+
+  it("requires a non-future visit date for the with-OPD registration flow", () => {
+    const base = { ...minimumPatient, age: "34", maritalStatus: "single" };
+    const today = toLocalInputDate();
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = toLocalInputDate(tomorrowDate);
+    expect(patientWithOpdFormSchema.safeParse({
+      ...base,
+      visitDate: tomorrow,
+    }).success).toBe(false);
+    expect(patientWithOpdFormSchema.safeParse({
+      ...base,
+      visitDate: today,
+      visitRemarks: "Late entry",
+    }).success).toBe(true);
+  });
+
+  it("requires a bounded whole-year manual number for clinic-record entries", () => {
+    const base = { ...minimumPatient, age: "34", maritalStatus: "single" };
+    expect(clinicRecordPatientFormSchema.safeParse({
+      ...base,
+      year: "1999",
+      positionInYear: "45",
+    }).success).toBe(false);
+    expect(clinicRecordPatientFormSchema.safeParse({
+      ...base,
+      year: "2026",
+      positionInYear: "45",
+    }).success).toBe(true);
+    expect(clinicRecordPatientFormSchema.safeParse({
+      ...base,
+      year: "2026.5",
+      positionInYear: "45",
     }).success).toBe(false);
   });
 });

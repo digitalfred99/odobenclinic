@@ -69,9 +69,17 @@ export default function PatientPhotoCamera({ onClose, onUsePhoto }: PatientPhoto
   }, [capturedPhoto, onUsePhoto]);
 
   return (
-    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog.Root
+      open
+      modal
+      disablePointerDismissal
+      onOpenChange={(open) => { if (!open) onClose(); }}
+    >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[100] bg-foreground/50 backdrop-blur-sm" />
+        <Dialog.Backdrop
+          forceRender
+          className="patient-camera-backdrop pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/50 backdrop-blur-sm"
+        />
         <Dialog.Popup
           role="dialog"
           aria-modal="true"

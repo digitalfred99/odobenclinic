@@ -4,10 +4,15 @@ import { useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError, changePassword } from "@/lib/api";
-import { isStrongPassword, PASSWORD_STRENGTH_MESSAGE } from "@/lib/password";
+import {
+  getPasswordPolicyError,
+  isStrongPassword,
+  PASSWORD_STRENGTH_MESSAGE,
+} from "@/lib/password";
 import { setSignInNotice } from "@/lib/session";
 
 type ChangePasswordDialogProps = {
@@ -71,7 +76,12 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
     if (!values.currentPassword) nextErrors.currentPassword = "Current password is required.";
     if (!values.newPassword) nextErrors.newPassword = "New password is required.";
     if (!values.confirmPassword) nextErrors.confirmPassword = "Please confirm your new password.";
-    if (values.newPassword && !isStrongPassword(values.newPassword)) {
+    const passwordPolicyError = values.newPassword
+      ? getPasswordPolicyError(values.newPassword)
+      : null;
+    if (passwordPolicyError) {
+      nextErrors.newPassword = passwordPolicyError;
+    } else if (values.newPassword && !isStrongPassword(values.newPassword)) {
       nextErrors.newPassword = PASSWORD_STRENGTH_MESSAGE;
     } else if (values.newPassword && values.newPassword === values.currentPassword) {
       nextErrors.newPassword = "Your new password must be different from your current password.";
@@ -98,6 +108,8 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
         setErrors({ currentPassword: error.message });
       } else if (error instanceof ApiError && error.code === "same_password") {
         setErrors({ newPassword: error.message });
+      } else if (error instanceof Error && /password/i.test(error.message)) {
+        setErrors({ newPassword: error.message });
       } else if (error instanceof ApiError && error.status === 429) {
         setFormError("Too many attempts, please try again later");
       } else {
@@ -109,9 +121,9 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+    <Dialog.Root open={open} modal onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[100] bg-foreground/40 backdrop-blur-sm" />
+        <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/40 backdrop-blur-sm" />
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-[101] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xl outline-none">
           <Dialog.Title className="text-lg font-semibold text-foreground">Change password</Dialog.Title>
           <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -152,9 +164,11 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
                     </button>
                   </div>
                   {field === "newPassword" ? (
-                    <p id="change-password-strength" className="text-xs text-muted-foreground">
-                      At least 8 characters, one number, and one special character.
-                    </p>
+                    <PasswordRequirements
+                      id="change-password-strength"
+                      password={values.newPassword}
+                      variant="auth"
+                    />
                   ) : null}
                   {errors[field] ? <p id={errorId} className="text-sm text-destructive" role="alert">{errors[field]}</p> : null}
                 </div>

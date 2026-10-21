@@ -215,3 +215,97 @@
 - Added the patient report's separate Other name export field. Full-name fields in patient and OPD reports include the other name.
 - No backend files were changed. Validation: 26 focused tests pass, frontend TypeScript and production build pass, and all changed files except the OPD visit list pass ESLint. That file retains its existing setState-in-effect lint error.
 - Validation: 21 focused tests pass; frontend TypeScript, targeted ESLint, `git diff --check`, and production build pass.
+
+## Patient creation endpoint and visit-details follow-up
+- Routed ordinary registration through the transactional `/patients/with-opd` create request for both photo and no-photo submissions; both request formats include the visit date, and remarks are omitted when blank. The response type now models both the patient and created OPD visit.
+- Added registration-only visit date and remarks fields before the photo section. The date defaults from the local calendar, rejects future dates, and is sent in `YYYY-MM-DD` form.
+- Routed “Add from clinic records” through `/patients` only, with required year and number-in-year inputs, validation, a live `PT-{position}/{year}` preview, and flat JSON or multipart fields.
+- Centralized typed creation request serialization. Kept multipart boundaries browser-generated, enforced JPEG/PNG/WebP and 5 MB client-side rules, and reused duplicate review/confirmation only for `patient_exists`. Government-ID conflicts remain blocked; duplicate paper-book numbers highlight both number fields.
+- The form has no wizard or separate summary step; the new visit section follows personal details and precedes photo capture, and visit data is included in duplicate-comparison details.
+- No backend files were changed.
+- Validation: 51 focused patient/date/photo tests pass, modified workflow files pass targeted ESLint and frontend TypeScript checks, and `npm run build` passes. Full `npm run lint` remains blocked by two existing errors in untouched `src/app/(app)/dashboard/page.tsx` and `src/components/features/opd/opd-visit-list.tsx`.
+
+## Patient registration draft-retention follow-up
+- Kept patient-registration and clinic-record-entry drafts, including selected photos, in page state when the dialog is dismissed by clicking outside or using its close button. Reopening each flow restores its own draft; successful creation clears it.
+- Added a confirmed Clear form action to remove all entered values and the selected photo intentionally.
+- Validation: 26 focused page/form tests pass; changed files pass targeted ESLint, frontend TypeScript, `git diff --check`, and production build.
+
+## Shared data refresh follow-up
+- Added a shared Refresh action to authenticated pages other than the dashboard, which retains its existing refresh control. The action refetches active TanStack Query data in place, preserves page state, prevents duplicate refreshes, and reports success or failure.
+- Added up to two short retries for network errors and transient HTTP 408/429/5xx query failures; client errors are not retried.
+- Validation: four focused tests pass; changed files pass targeted ESLint, frontend TypeScript, `git diff --check`, and production build.
+- Scoped refresh feedback to the route where refresh was requested so success/failure messages do not appear on unrelated pages, including when an earlier request finishes after navigation.
+
+## Patient registration validation and close-control follow-up
+- Kept an icon-only, accessibly named close action present in the sticky registration header, including after a validation banner appears.
+- Removed the draft-retention note from the registration header.
+- Separated server validation feedback from other registration errors so any edit or clearing of a form field dismisses stale validation feedback; age/date-of-birth mapped errors clear together.
+- Added a regression test for the age/date-of-birth mismatch and clearing the affected input.
+
+## Session loading screen refresh
+- Replaced the auth/session loading skeleton with an Odoben Health Center loading scene featuring a heartbeat icon, expanding pulse rings, and animated progress dots.
+- Respects reduced-motion preferences and uses existing theme tokens.
+
+## OPD patient photo display
+- Show a patient’s photo in the selected-patient summary and the “More” details header, keeping the existing circular avatar dimensions and falling back to the user symbol when no photo is available or the image fails to load.
+- Reused the shared patient-photo URL resolver; added coverage for photo display in both locations.
+
+## Mobile responsiveness follow-up
+- Reviewed the authenticated app visually at 360px and 390px phone widths, plus 768px, 1024px, and 1440px layout breakpoints. Checked the dashboard, patient list and registration sheet, OPD list/registration/detail, patient detail, reports, users, audit logs, profile, and change-password dialog. No page-level horizontal overflow or clipped dialog controls were found; the viewport/client-width difference is the vertical scrollbar gutter.
+- Wide users and audit tables and report navigation tabs remain locally horizontally scrollable; report records use stacked cards on phones.
+- Improved the OPD “More” dialog for phone widths: patient identity now gets a full-width row beneath the avatar/close controls, names wrap instead of being clipped, and patient facts use one column before switching to two columns at `sm`.
+- Validation: phone-width screenshots and DOM measurements confirmed the page/document width stays within the viewport across the checked routes; the responsive markup and avatar tests pass. No additional layout changes were warranted.
+
+## OPD patient details dialog positioning
+- Changed the OPD registration “More” dialog from a bottom sheet to a centered modal on phones, matching the other centered dialogs. It keeps a bounded height and scrollable content while leaving the heading and close button in the persistent header.
+- Added a regression assertion that the phone layout does not restore bottom-sheet positioning.
+- Validation: the dialog was visually checked at 360px and 390px phone widths and remains centered; focused OPD registration tests pass, changed files pass ESLint, and `git diff --check` passes.
+
+## Consistent close-button appearance
+- Added a shared close button matching the patient-registration X control: circular card background, soft shadow, 40px touch target, and consistent X icon sizing.
+- Applied it to patient registration/duplicate/comparison dialogs, OPD patient details, the mobile navigation drawer, and dismissible feedback messages. Search-clear and delete/remove X actions retain their distinct action styling.
+- Added close-button style assertions and a focused shared-component test.
+
+## Modal background interaction blocking
+- Explicitly enabled modal behavior on each Base UI dialog and made every dialog backdrop capture pointer and touch input across the viewport. This prevents background clicks and touch scrolling while a modal is open.
+- Applied the same touch blocking to camera overlays and native OPD visit dialog backdrops; native `showModal()` blocks background interaction.
+- Browser inspection confirmed the registration backdrop covers the full viewport, captures pointer input, disables touch scrolling, locks body scrolling, and marks the underlying page inert.
+- Validation: focused patient, reports, password-dialog, and camera tests pass (29 tests); changed files pass ESLint, frontend TypeScript, and `git diff --check`.
+
+## Patient edit photos and editable fields
+- Enabled the shared camera/upload controls while editing a patient and previewed the existing photo; no replacement keeps the current photo, while a new photo is uploaded as `image` on the existing PATCH endpoint.
+- Patient edits now send only backend-supported editable fields, with JSON for ordinary edits and flat multipart fields plus the image for photo replacement. Generated patient-number fields and visit data are excluded.
+- The backend's multipart parser deliberately ignores empty text fields. If an edit clears a previously populated optional field while also replacing the photo, the form asks staff to save the cleared field first without a photo; otherwise that clear would silently be lost. JSON edits can clear nullable fields.
+- Added coverage for the edit-mode current-photo preview, JSON field payload, and multipart serialization.
+- Validation: focused patient edit/form/helper tests pass (24 tests), frontend TypeScript passes, changed patient files pass ESLint, and `git diff --check -- frontend` passes.
+
+## OPD patient-details modal mobile layout
+- Root cause: the native dialog had only a `max-height` while its flex header, scrollable details region, and footer were all shrinkable. A flex item with a zero basis and no definite available height can collapse differently across mobile browser engines, and the header also used an extra identity row on narrow screens. Browser emulation additionally showed wheel/touch scroll chaining could move the page behind the native dialog, including when scrolling over the footer.
+- Set a definite, safe-area-aware mobile dialog height using the dynamic viewport with a `vh` fallback; kept the header/footer from shrinking and let the details/history region take the remaining height and scroll independently. Locked and restored the document scroll position for the modal lifetime, and contained overscroll within the details/history region.
+- Placed the avatar, patient identity, and close control together in the mobile header to eliminate the unnecessary second row. Desktop sizing and positioning remain unchanged.
+- Added regression assertions for the dialog class, non-shrinking header/footer, independently scrollable content, and document-scroll restoration on close.
+- Browser-emulation measurements at 320×568, 360×640, 375×667, 390×568, 390×700, and 390×844 showed a 264–515 px scroll region, with the footer below the content and no overlap. Verified scrolling reaches the end of the history, wheel scrolling over both content and footer does not move the page while open, and normal page scrolling resumes after close. This was browser emulation, not a physical iPhone test.
+- Validation: the focused OPD registration test passes, frontend TypeScript and targeted ESLint pass, `npm run build` succeeds, and `git diff --check` passes.
+
+## Consistent branded loading screen
+- Replaced the root route’s old “Redirecting you to the right place” card with the shared Odoben heartbeat/pulse loading screen. The root redirect, public login guard, and protected-route guard now all render the same component while resolving session/redirect state.
+- Added a focused accessible rendering test for the shared loading screen.
+- Validation: the loading screen test passes, frontend TypeScript and targeted ESLint pass, production build passes, and browser navigation to `/` visibly shows the branded heartbeat before redirecting to the authenticated destination.
+
+## Backend-aligned password checklist
+- Replaced the outdated single-line password hint with a live, accessible checklist that marks each satisfied requirement in the success token and shows an all-ready message once complete.
+- Aligned client validation with `user.validator.ts`: 8–72 characters, no whitespace, lowercase and uppercase letters, a number, and one backend-approved special character.
+- Applied a plain, live checklist to staff creation, admin password resets, and password changes. The change-password UI additionally requires lowercase and uppercase letters at the user's request; the current auth backend validator enforces at least 8 characters, one number, and one allowed special character.
+- Removed the checklist heading, instructional copy, whitespace/maximum-length labels, background, and border at the user's request. Staff creation/reset and password change now check whitespace and the 72-character maximum before making the API request, with specific inline messages; other unlisted password rules remain backend-enforced.
+- Backend password validation messages from user creation/reset and password change are surfaced inline beside the relevant password field, including for validation rules not represented by the client checklist.
+- Validation: focused password and user-form tests, TypeScript, targeted ESLint, production build, and `git diff --check` pass.
+
+## Consistent modal close-button focus
+- Audited visible X-icon controls: dialog, sidebar, and dismissible-message close actions use the shared `CloseButton`; OPD search clearing, selected-patient clearing, report chip removal, and saved-view deletion are distinct actions and remain unchanged. The camera dialog uses a labeled Cancel action rather than an X.
+- The OPD patient-details X already used the shared close component, but native-dialog autofocus placed a visible focus ring around it on open, making it look different from patient registration. Initial focus now goes to the dialog title; keyboard users can Tab to the close control as usual.
+- Validation: OPD registration regression test, TypeScript, targeted ESLint, and diff check pass. Browser inspection confirms title focus on open and the close control remains the shared 40px circular, shadowed button without an automatic focus ring.
+
+## OPD page refresh alignment
+- Aligned the shared refresh control with the centered `max-w-6xl` content on the OPD visit list and registration pages; other pages retain the full content-column alignment.
+- Audited the dashboard’s separate refresh action and the reports refresh action; both remain aligned within their own content/card layouts.
+- Validation: refresh-control tests pass (4 tests), TypeScript and targeted ESLint pass, and desktop browser measurements at 1600px confirm the OPD list, OPD registration, and patient-list refresh rows align with their content edges.

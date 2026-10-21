@@ -44,6 +44,8 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
     defaultValues: {
       phone: "",
       password: "",
@@ -90,7 +92,7 @@ export default function LoginPage() {
               required
               error={errors.phone?.message}
               aria-invalid={Boolean(errors.phone)}
-              {...register("phone")}
+              {...register("phone", { onChange: () => setSubmitError(null) })}
             />
           </div>
 
@@ -104,7 +106,7 @@ export default function LoginPage() {
               autoComplete="current-password"
               placeholder="Enter password"
               aria-invalid={Boolean(errors.password)}
-              {...register("password")}
+              {...register("password", { onChange: () => setSubmitError(null) })}
             />
             {errors.password ? <p className="text-sm text-destructive">{errors.password.message}</p> : null}
           </div>

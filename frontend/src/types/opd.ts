@@ -21,6 +21,7 @@ export type OPDVisit = {
     area?: string | null;
     createdAt?: string;
   };
+
   createdBy?: {
     id: string;
     firstName: string;
@@ -28,6 +29,19 @@ export type OPDVisit = {
   };
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type CreatedOPDVisit = {
+  id: string;
+  date: string;
+  remarks?: string | null;
+  newReturning: OPDVisitNewReturning;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  createdAt?: string;
 };
 
 export type OPDVisitListResponse = {

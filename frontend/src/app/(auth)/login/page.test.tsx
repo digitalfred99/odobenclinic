@@ -24,6 +24,9 @@ describe("login", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Incorrect phone number or password.");
     expect(screen.queryByText(/deactivated/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "updated-password" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("uses a generic error for incorrect credentials and validates phone format inline", async () => {

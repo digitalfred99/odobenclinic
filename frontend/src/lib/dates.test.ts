@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateAge, getDateOfBirthError } from "./dates";
+import { calculateAge, getDateOfBirthError, getOpdVisitDateError, toLocalInputDate } from "./dates";
 
 describe("calculateAge", () => {
   it("calculates the current age from a valid date of birth", () => {
@@ -20,6 +20,18 @@ describe("getDateOfBirthError", () => {
   it("rejects malformed and impossible calendar dates", () => {
     expect(getDateOfBirthError("12/34/2344566", today)).toBe("Enter the date in YYYY-MM-DD format.");
     expect(getDateOfBirthError("2026-02-29", today)).toBe("Enter a valid calendar date.");
+  });
+
+  describe("local OPD visit dates", () => {
+    it("formats the current local calendar date without converting through UTC", () => {
+      expect(toLocalInputDate(new Date(2026, 9, 20, 23, 30))).toBe("2026-10-20");
+    });
+
+    it("rejects future and invalid dates while allowing late data entry", () => {
+      expect(getOpdVisitDateError("2026-10-21", "2026-10-20")).toBe("Visit date cannot be in the future.");
+      expect(getOpdVisitDateError("2026-02-30", "2026-10-20")).toBe("Enter a valid visit date.");
+      expect(getOpdVisitDateError("2026-10-19", "2026-10-20")).toBeNull();
+    });
   });
 
   it("rejects future dates and dates older than 130 years", () => {

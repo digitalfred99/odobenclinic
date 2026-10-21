@@ -26,9 +26,9 @@ export function FilterSheet({ open, onOpenChange, slice, onChange, vocab }: {
   const options = (list: string[]) => list.map((v) => <option key={v} value={v}>{v}</option>);
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} modal onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
+        <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/40 print:hidden" />
         <Dialog.Popup className="fixed inset-x-0 bottom-0 z-[101] flex max-h-[88dvh] flex-col rounded-t-2xl border border-border bg-card text-card-foreground shadow-xl outline-none md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-96 md:rounded-none print:hidden">
           <div className="border-b border-border px-5 py-4">
             <Dialog.Title className="text-lg font-semibold text-foreground">Filters</Dialog.Title>

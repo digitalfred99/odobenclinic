@@ -41,3 +41,27 @@ export function calculateAge(dateOfBirth?: string | null) {
 export function toInputDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
+
+export function toLocalInputDate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function getOpdVisitDateError(date: string, today = toLocalInputDate()): string | null {
+  if (!ISO_DATE_PATTERN.test(date)) {
+    return "Enter the visit date in YYYY-MM-DD format.";
+  }
+
+  const parsedDate = parseISO(date);
+  if (!isValid(parsedDate) || format(parsedDate, "yyyy-MM-dd") !== date) {
+    return "Enter a valid visit date.";
+  }
+
+  if (date > today) {
+    return "Visit date cannot be in the future.";
+  }
+
+  return null;
+}

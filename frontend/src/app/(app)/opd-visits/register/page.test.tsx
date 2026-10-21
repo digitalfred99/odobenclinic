@@ -7,6 +7,34 @@ import OPDVisitRegistrationPage from "./page";
 const push = vi.fn();
 const replace = vi.fn();
 
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+  configurable: true,
+  value: function showModal(this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  },
+});
+Object.defineProperty(HTMLDialogElement.prototype, "close", {
+  configurable: true,
+  value: function close(this: HTMLDialogElement) {
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  },
+});
+
 vi.mock("@/lib/api", () => ({
   apiRequest: vi.fn().mockResolvedValue({ patients: [] }),
 }));
@@ -33,7 +61,7 @@ function renderRegistration() {
 }
 
 describe("OPDVisitRegistrationPage", () => {
-  it("registers an attendance, confirms success, and allows an undo", async () => {
+  it("shows a patient's photo in the selected summary and More details", async () => {
     const patient = {
       id: "patient-uuid",
       firstName: "Ama",
@@ -42,54 +70,53 @@ describe("OPDVisitRegistrationPage", () => {
       phone: "0".repeat(10),
       town: "Odoben",
       area: "Awendadze",
-    };
-    const visit = {
-      id: "visit-uuid",
-      date: "2026-10-10",
-      newReturning: "new",
-      patient,
+      imageUrl: "/uploads/patients/ama.jpg",
     };
     vi.mocked(apiRequest).mockResolvedValueOnce({ patients: [patient] });
     vi.mocked(apiRequest).mockResolvedValueOnce(patient);
-    vi.mocked(apiRequest).mockResolvedValueOnce(visit);
-    vi.mocked(apiRequest).mockResolvedValueOnce({});
 
     renderRegistration();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search patients for an OPD visit" }), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Search for a patient" }), {
       target: { value: "Ama" },
     });
-    const patientMatch = await screen.findByRole("button", { name: /Ama Mensah/ });
-    expect(patientMatch).toHaveAttribute("aria-pressed", "false");
+    const patientMatch = await screen.findByRole("option", { name: /Ama Mensah/ });
+    expect(patientMatch).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Odoben")).toBeInTheDocument();
     expect(screen.getByText("Awendadze")).toBeInTheDocument();
     fireEvent.click(patientMatch);
 
-    expect(screen.getByText("Selected")).toBeInTheDocument();
-    expect(replace).toHaveBeenCalledWith("/opd-visits/register?patientId=patient-uuid");
-    expect(screen.getAllByText("Ama Mensah")).toHaveLength(2);
-    expect(screen.getAllByText("OPD No. 12/2026")).toHaveLength(2);
+    expect(replace).toHaveBeenCalledWith("/opd-visits/register?patientId=patient-uuid", { scroll: false });
+    expect(screen.getAllByText("Ama Mensah")).toHaveLength(1);
+    expect(screen.getAllByText("OPD No. 12/2026")).toHaveLength(1);
+    expect(screen.getAllByAltText("")).toHaveLength(1);
+    expect(screen.getByAltText("")).toHaveAttribute("src", expect.stringContaining("/uploads/patients/ama.jpg"));
     expect(screen.getByRole("button", { name: "Clear" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Register visit" }));
-
-    expect(await screen.findByText("Okay · attendance saved")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Undo last visit" })).toBeInTheDocument();
-    expect(apiRequest).toHaveBeenCalledWith("/opd-visits", expect.objectContaining({
-      method: "POST",
-      body: expect.stringContaining('"patient":"patient-uuid"'),
-    }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Undo last visit" }));
-    expect(screen.getByRole("alertdialog", { name: "Undo the last OPD visit?" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Undo visit" }));
-
-    await waitFor(() => {
-      expect(apiRequest).toHaveBeenCalledWith("/opd-visits", {
-        method: "DELETE",
-        body: JSON.stringify({ ids: ["visit-uuid"] }),
-      });
-    });
-    expect(await screen.findByText("The last OPD visit was successfully undone.")).toBeInTheDocument();
+    const previousPosition = document.body.style.position;
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    fireEvent.click(screen.getAllByRole("button", { name: "More details for Ama Mensah" }).at(-1)!);
+    expect(screen.getAllByAltText("")).toHaveLength(2);
+    const detailsDialog = document.querySelector("dialog");
+    expect(detailsDialog?.querySelector("img")).not.toBeNull();
+    expect(detailsDialog?.querySelector('button[aria-label="Close details"]')).toHaveClass(
+      "rounded-full",
+      "bg-card",
+      "shadow-md"
+    );
+    expect(detailsDialog).toHaveClass("m-auto", "opd-patient-details-dialog");
+    expect(detailsDialog).not.toHaveClass("max-sm:mt-auto", "max-sm:mb-0", "max-sm:rounded-b-none");
+    expect(detailsDialog?.querySelector("#patient-details-title")).toHaveClass("break-words");
+    expect(detailsDialog?.firstElementChild).toHaveClass("shrink-0");
+    expect(detailsDialog?.querySelector("dl")).toHaveClass("grid-cols-1", "sm:grid-cols-2");
+    expect(detailsDialog?.children[1]).toHaveClass("min-h-0", "flex-1", "overflow-y-auto", "overscroll-contain");
+    expect(detailsDialog?.lastElementChild).toHaveClass("shrink-0");
+    expect(document.activeElement).toBe(detailsDialog?.querySelector("#patient-details-title"));
+    expect(document.body.style.position).toBe("fixed");
+    fireEvent.click(detailsDialog?.querySelector('button[aria-label="Close details"]') as HTMLButtonElement);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Ama Mensah" })).not.toBeInTheDocument());
+    expect(document.body.style.position).toBe(previousPosition);
+    expect(scrollTo).toHaveBeenCalled();
+    scrollTo.mockRestore();
   });
 });

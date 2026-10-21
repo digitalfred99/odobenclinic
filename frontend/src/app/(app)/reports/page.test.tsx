@@ -7,6 +7,7 @@ import ReportsPage from "./page";
 const excelState = vi.hoisted(() => ({
   rows: [] as unknown[][],
   headerBold: false,
+  headerFill: "",
   worksheetName: "",
   columns: [] as { header: string; width: number }[],
 }));
@@ -30,14 +31,21 @@ vi.mock("exceljs", () => ({
       addWorksheet(name: string) {
         excelState.worksheetName = name;
         excelState.rows = [];
+        const createRow = (rowIndex: number) => ({
+          set font(value: { bold?: boolean }) {
+            if (value.bold) excelState.headerBold = true;
+          },
+          set fill(value: { fgColor?: { argb?: string } }) {
+            if (rowIndex === 1 && value.fgColor?.argb) excelState.headerFill = value.fgColor.argb;
+          },
+          set height(_value: number) {},
+          set alignment(_value: { vertical?: string; wrapText?: boolean }) {},
+          eachCell: (_options: { includeEmpty: boolean }, callback: (cell: { border?: unknown }) => void) => callback({}),
+        });
         return {
           addRow: (row: unknown[]) => {
             excelState.rows.push(row);
-            return {
-              set font(value: { bold?: boolean }) {
-                if (value.bold) excelState.headerBold = true;
-              },
-            };
+            return createRow(excelState.rows.length);
           },
           set columns(columns: { header: string; width: number }[]) {
             excelState.columns = columns;
@@ -46,11 +54,11 @@ vi.mock("exceljs", () => ({
           get columns() {
             return excelState.columns;
           },
-          getRow: (rowIndex: number) => ({
-            set font(value: { bold?: boolean }) {
-              if (rowIndex === 1) excelState.headerBold = value.bold === true;
-            },
-          }),
+          mergeCells: () => {},
+          getRow: (rowIndex: number) => createRow(rowIndex),
+          eachRow: (callback: (row: ReturnType<typeof createRow>, rowIndex: number) => void) => {
+            excelState.rows.forEach((_row, index) => callback(createRow(index + 1), index + 1));
+          },
         };
       }
     },
@@ -148,8 +156,17 @@ beforeEach(() => {
   });
   excelState.rows = [];
   excelState.headerBold = false;
+  excelState.headerFill = "";
   excelState.worksheetName = "";
   excelState.columns = [];
+  document.documentElement.style.setProperty("--primary", "#1b5e5c");
+  document.documentElement.style.setProperty("--primary-foreground", "#f5f7f4");
+  document.documentElement.style.setProperty("--foreground", "#172321");
+  document.documentElement.style.setProperty("--muted-foreground", "#556d67");
+  document.documentElement.style.setProperty("--muted", "#f5f7f4");
+  document.documentElement.style.setProperty("--secondary", "#dfeee9");
+  document.documentElement.style.setProperty("--accent", "#6aae9a");
+  document.documentElement.style.setProperty("--border", "#d7e3df");
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
     configurable: true,
     value: vi.fn(),
@@ -235,7 +252,7 @@ describe("report export field selection", () => {
     expect(screen.getByText("12/2026", { selector: "td" })).toBeInTheDocument();
   });
 
-  it("exports selected columns in an Excel workbook with a bold header row", async () => {
+  it("exports selected columns in a branded Excel workbook with green table headers", async () => {
     let exportedBlob: Blob | undefined;
     vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
       if (blob instanceof Blob) exportedBlob = blob;
@@ -263,6 +280,7 @@ describe("report export field selection", () => {
     expect(exportedBlob?.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     expect(excelState.worksheetName).toBe("Patient registrations");
     expect(excelState.headerBold).toBe(true);
+    expect(excelState.headerFill).toBe("FF1B5E5C");
     expect(excelState.columns[0]).toEqual({ header: "Patient ID / OPD No.", width: 22 });
     expect(excelState.rows[0]).toEqual([
       "Patient ID / OPD No.",
@@ -325,6 +343,8 @@ describe("report export field selection", () => {
     const csv = await exportedBlob.text();
     const bytes = new Uint8Array(await exportedBlob.arrayBuffer());
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(csv).toContain('"ODOBEN HEALTH CENTER"');
+    expect(csv).toContain('"Patient registration report"');
     expect(csv).toContain('"Patient ID / OPD No."');
     expect(csv).toContain('"12/2026"');
     expect(csv).toContain('"3 Oct 2026"');

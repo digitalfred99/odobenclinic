@@ -35,6 +35,7 @@ export function useCamera() {
   const mountedRef = useRef(false);
   const liveModeRef = useRef(true);
   const selectedDeviceRef = useRef<string | null>(null);
+  const selectedFacingModeRef = useRef<"user" | "environment">("environment");
   const switchingRef = useRef(false);
   const flashTimeoutRef = useRef<number | null>(null);
   const [isStarting, setIsStarting] = useState(true);
@@ -43,7 +44,7 @@ export function useCamera() {
   const [error, setError] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null);
   const [isLiveMode, setIsLiveMode] = useState(true);
-  const [isFrontFacing, setIsFrontFacing] = useState(true);
+  const [isFrontFacing, setIsFrontFacing] = useState(false);
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
@@ -69,7 +70,11 @@ export function useCamera() {
     return cameras;
   }, []);
 
-  const startCamera = useCallback(async (deviceId?: string, fallbackFacingMode: "user" | "environment" = "user") => {
+  const startCamera = useCallback(async (
+    deviceId?: string,
+    fallbackFacingMode: "user" | "environment" = "environment",
+    requireFacingMode = false,
+  ) => {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setError("Camera needs a secure (HTTPS) connection. You can upload a photo instead.");
       setIsStarting(false);
@@ -94,7 +99,7 @@ export function useCamera() {
             height: { ideal: 720 },
           }
         : {
-            facingMode: fallbackFacingMode,
+            facingMode: requireFacingMode ? { exact: fallbackFacingMode } : fallbackFacingMode,
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
@@ -103,12 +108,33 @@ export function useCamera() {
 
     try {
       let stream: MediaStream;
+      let activeFacingMode = fallbackFacingMode;
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (initialError) {
-        if (initialError instanceof Error && initialError.name === "OverconstrainedError") {
+        const errorName = initialError instanceof Error ? initialError.name : "";
+        if (
+          !deviceId &&
+          !requireFacingMode &&
+          fallbackFacingMode === "environment" &&
+          (errorName === "OverconstrainedError" || errorName === "NotFoundError")
+        ) {
+          activeFacingMode = "user";
           stream = await navigator.mediaDevices.getUserMedia({
-            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            video: {
+              facingMode: "user",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          });
+        } else if (errorName === "OverconstrainedError") {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: deviceId
+              ? { deviceId: { exact: deviceId } }
+              : requireFacingMode
+                ? { facingMode: fallbackFacingMode }
+                : true,
             audio: false,
           });
         } else {
@@ -127,7 +153,11 @@ export function useCamera() {
       if (settings?.deviceId) {
         selectedDeviceRef.current = settings.deviceId;
       }
-      setIsFrontFacing(settings?.facingMode ? settings.facingMode === "user" : fallbackFacingMode === "user");
+      const actualFacingMode = settings?.facingMode
+        ? settings.facingMode === "user" ? "user" : "environment"
+        : activeFacingMode;
+      selectedFacingModeRef.current = actualFacingMode;
+      setIsFrontFacing(actualFacingMode === "user");
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
@@ -152,7 +182,7 @@ export function useCamera() {
     let isCurrent = true;
     queueMicrotask(() => {
       if (isCurrent) {
-        void startCamera();
+        void startCamera(undefined, "environment");
       }
     });
 
@@ -161,7 +191,7 @@ export function useCamera() {
         stopStream();
         setVideoReady(false);
       } else if (liveModeRef.current && mountedRef.current) {
-        void startCamera(selectedDeviceRef.current ?? undefined);
+        void startCamera(selectedDeviceRef.current ?? undefined, selectedFacingModeRef.current);
       }
     };
     const handleDeviceChange = () => {
@@ -234,24 +264,16 @@ export function useCamera() {
     switchingRef.current = true;
     setIsSwitching(true);
     try {
-      const cameras = await refreshDevices();
-      if (cameras.length < 2) {
-        return;
-      }
-
-      const currentIndex = cameras.findIndex((camera) => camera.deviceId === selectedDeviceRef.current);
-      const nextIndex = currentIndex < 0 ? 1 % cameras.length : (currentIndex + 1) % cameras.length;
-      const nextCamera = cameras[nextIndex];
       const nextFacingMode = isFrontFacing ? "environment" : "user";
-      selectedDeviceRef.current = nextCamera.deviceId;
-      await startCamera(nextCamera.deviceId, nextFacingMode);
+      selectedDeviceRef.current = null;
+      await startCamera(undefined, nextFacingMode, true);
     } catch {
       setError("Unable to switch cameras. Please try again.");
     } finally {
       switchingRef.current = false;
       setIsSwitching(false);
     }
-  }, [isFrontFacing, refreshDevices, startCamera]);
+  }, [isFrontFacing, startCamera]);
 
   const retry = useCallback(() => {
     void startCamera(selectedDeviceRef.current ?? undefined, isFrontFacing ? "user" : "environment");

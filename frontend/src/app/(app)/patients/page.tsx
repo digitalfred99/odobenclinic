@@ -1,31 +1,95 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "@base-ui/react/dialog";
-import { Archive, CircleAlert, UserPlus, X } from "lucide-react";
+import { Archive, CircleAlert, UserPlus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError, apiRequest } from "@/lib/api";
+import { toLocalInputDate } from "@/lib/dates";
 import { PatientForm } from "@/components/features/patients/patient-form";
 import { PatientSearchList } from "@/components/features/patients/patient-search";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
-import { prependPatientToList } from "@/lib/patients";
+import {
+  createClinicRecordPatient,
+  createPatientWithOpd,
+  prependPatientToList,
+} from "@/lib/patients";
 import { cachePatientLocation } from "@/lib/patient-location-cache";
 import type { PatientFormValues } from "@/schemas/patient";
-import type { Patient, PatientListResponse } from "@/types/patient";
+import type {
+  ManualPatientCreateInput,
+  Patient,
+  PatientCreateInput,
+  PatientListResponse,
+} from "@/types/patient";
 
 type RegistrationMode = "new" | "clinic-record" | null;
-
-type PatientWithOpdResponse = {
-  patient: Patient;
+type RegistrationDraft = {
+  values: Partial<PatientFormValues>;
+  photo: File | null;
 };
 
 type DuplicateReview = {
+  message: string;
   patientId: string | null;
   values: PatientFormValues;
   canAccept: boolean;
 };
+
+function toPatientCreateInput(
+  values: PatientFormValues,
+  confirmedDuplicatePatientId: string | null
+): PatientCreateInput {
+  if (!values.gender || !values.maritalStatus) {
+    throw new Error("Enter the patient’s gender and marital status.");
+  }
+
+  return {
+    firstName: values.firstName.trim(),
+    lastName: values.lastName.trim(),
+    gender: values.gender,
+    maritalStatus: values.maritalStatus,
+    ...(values.otherName?.trim() ? { otherName: values.otherName.trim() } : {}),
+    ...(values.dateOfBirth ? { dateOfBirth: values.dateOfBirth } : {}),
+    ...(values.age !== undefined && values.age !== "" ? { age: Number(values.age) } : {}),
+    ...(values.phone ? { phone: values.phone } : {}),
+    ...(values.ghCardNumber ? { ghCardNumber: values.ghCardNumber } : {}),
+    ...(values.nhisNumber ? { nhisNumber: values.nhisNumber } : {}),
+    ...(values.region ? { region: values.region } : {}),
+    ...(values.district ? { district: values.district } : {}),
+    ...(values.town ? { town: values.town } : {}),
+    ...(values.area ? { area: values.area } : {}),
+    ...(confirmedDuplicatePatientId ? { confirmedDuplicatePatientId } : {}),
+  };
+}
+
+function mapValidationErrorToField(message: string): Partial<Record<keyof PatientFormValues, string>> {
+  const fieldPatterns: Array<[keyof PatientFormValues, RegExp]> = [
+    ["firstName", /\bfirstName\b|first name/i],
+    ["otherName", /\botherName\b|other name/i],
+    ["lastName", /\blastName\b|last name/i],
+    ["dateOfBirth", /\bdateOfBirth\b|date of birth/i],
+    ["age", /\bage\b/i],
+    ["phone", /\bphone\b/i],
+    ["ghCardNumber", /\bghCardNumber\b|ghana card/i],
+    ["nhisNumber", /\bnhisNumber\b|nhis/i],
+    ["region", /\bregion\b/i],
+    ["district", /\bdistrict\b/i],
+    ["town", /\btown\b/i],
+    ["area", /\barea\b/i],
+    ["gender", /\bgender\b/i],
+    ["maritalStatus", /\bmaritalStatus\b|marital status/i],
+    ["visitDate", /\bvisit date\b|\bopdVisit\.date\b/i],
+    ["visitRemarks", /\bremarks\b/i],
+    ["year", /\byear\b/i],
+    ["positionInYear", /\bpositionInYear\b|number in year/i],
+  ];
+  const match = fieldPatterns.find(([, pattern]) => pattern.test(message));
+  return match ? { [match[0]]: message } : {};
+}
 
 function comparisonValue(value: string | number | null | undefined): string {
   if (value === undefined || value === null || value === "") return "—";
@@ -40,8 +104,10 @@ function PatientsPageContent() {
     const requestedMode = searchParams.get("register");
     return requestedMode === "new" || requestedMode === "clinic-record" ? requestedMode : null;
   });
+  const [registrationDrafts, setRegistrationDrafts] = useState<Partial<Record<Exclude<RegistrationMode, null>, RegistrationDraft>>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [duplicateReview, setDuplicateReview] = useState<DuplicateReview | null>(null);
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [comparisonPatient, setComparisonPatient] = useState<Patient | null>(null);
@@ -50,8 +116,22 @@ function PatientsPageContent() {
   const [confirmedDuplicatePatientId, setConfirmedDuplicatePatientId] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [manualNumberError, setManualNumberError] = useState<string | null>(null);
+  const [serverFieldErrors, setServerFieldErrors] = useState<Partial<Record<keyof PatientFormValues, string>>>({});
 
-  const closeRegistration = () => {
+  const updateRegistrationValues = useCallback((values: PatientFormValues) => {
+    if (!registrationMode) return;
+    setRegistrationDrafts((current) => ({
+      ...current,
+      [registrationMode]: {
+        values,
+        photo: current[registrationMode]?.photo ?? null,
+      },
+    }));
+  }, [registrationMode]);
+
+  const closeRegistration = (clearDraft = false) => {
+    const closedMode = registrationMode;
     setRegistrationMode(null);
     setDuplicateReview(null);
     setComparisonOpen(false);
@@ -59,6 +139,16 @@ function PatientsPageContent() {
     setComparisonError(null);
     setConfirmedDuplicatePatientId(null);
     setReviewNotice(null);
+    setManualNumberError(null);
+    setServerFieldErrors({});
+    setValidationError(null);
+    if (clearDraft && closedMode) {
+      setRegistrationDrafts((current) => {
+        const next = { ...current };
+        delete next[closedMode];
+        return next;
+      });
+    }
     if (searchParams.has("register")) router.replace("/patients", { scroll: false });
   };
 
@@ -117,71 +207,56 @@ function PatientsPageContent() {
         ["District", duplicateReview.values.district, comparisonPatient?.district],
         ["Town", duplicateReview.values.town, comparisonPatient?.town],
         ["Area", duplicateReview.values.area, comparisonPatient?.area],
+        ...(registrationMode === "new"
+          ? [
+              ["Visit date", duplicateReview.values.visitDate, undefined],
+              ["Visit remarks", duplicateReview.values.visitRemarks, undefined],
+            ] as const
+          : []),
       ] as const
     : [];
 
   const handleSubmit = async (values: PatientFormValues, photo: File | null) => {
     setNotice(null);
     setError(null);
+    setValidationError(null);
     setDuplicateReview(null);
     setComparisonOpen(false);
     setComparisonPatient(null);
     setComparisonError(null);
     setReviewNotice(null);
     setPhotoError(null);
+    setManualNumberError(null);
+    setServerFieldErrors({});
 
     try {
       const confirmedPatientId = confirmedDuplicatePatientId;
       let patient: Patient;
       let firstVisitRecorded = false;
+      const patientInput = toPatientCreateInput(values, confirmedPatientId);
 
       if (registrationMode === "new") {
-        let registrationBody: BodyInit;
-        const patientData = {
-          ...values,
-          ...(confirmedPatientId ? { confirmedDuplicatePatientId: confirmedPatientId } : {}),
-        };
-
-        if (photo) {
-          const formData = new FormData();
-          formData.append("patient", JSON.stringify(patientData));
-          formData.append("image", photo);
-          registrationBody = formData;
-        } else {
-          registrationBody = JSON.stringify({ patient: patientData });
-        }
-
-        const result = await apiRequest<PatientWithOpdResponse>("/patients/with-opd", {
-          method: "POST",
-          body: registrationBody,
-        });
+        const result = await createPatientWithOpd({
+          patient: patientInput,
+          opdVisit: {
+            date: values.visitDate?.trim() || toLocalInputDate(),
+            ...(values.visitRemarks?.trim() ? { remarks: values.visitRemarks.trim() } : {}),
+          },
+        }, photo);
         patient = result.patient;
         firstVisitRecorded = true;
       } else {
-        let body: BodyInit;
-        if (photo) {
-          const formData = new FormData();
-          Object.entries(values).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && value !== "") {
-              formData.append(key, String(value));
-            }
-          });
-          if (confirmedPatientId) {
-            formData.append("confirmedDuplicatePatientId", confirmedPatientId);
-          }
-          formData.append("image", photo);
-          body = formData;
-        } else {
-          body = JSON.stringify({
-            ...values,
-            ...(confirmedPatientId ? { confirmedDuplicatePatientId: confirmedPatientId } : {}),
-          });
+        if (values.year === undefined || values.year === "" || values.positionInYear === undefined || values.positionInYear === "") {
+          setError("Enter the year and number in year from the clinic record.");
+          return false;
         }
 
-        patient = await apiRequest<Patient>("/patients", {
-          method: "POST",
-          body,
-        });
+        const manualPatientInput: ManualPatientCreateInput = {
+          ...patientInput,
+          year: Number(values.year),
+          positionInYear: Number(values.positionInYear),
+        };
+        patient = await createClinicRecordPatient(manualPatientInput, photo);
       }
 
       cachePatientLocation(patient);
@@ -198,18 +273,28 @@ function PatientsPageContent() {
           ? `Patient added from clinic records${patient.patientId ? `: ${patient.patientId}` : ""}. No OPD visit was created.`
           : `Patient registered${patient.patientId ? `: ${patient.patientId}` : ""}. First OPD visit recorded.`
       );
-      closeRegistration();
+      closeRegistration(true);
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to create patient.";
-      if (err instanceof ApiError && err.status === 409) {
+      if (err instanceof ApiError && err.status === 409 && err.key === "patient_exists") {
         setDuplicateReview({
+          message,
           patientId: message.match(/\bPT-\d+\/\d{4}\b/i)?.[0] ?? null,
           values,
-          canAccept: err.key === "patient_exists",
+          canAccept: true,
         });
         setConfirmedDuplicatePatientId(null);
         setError(null);
+        return false;
+      }
+      if (err instanceof ApiError && err.status === 409 && err.key === "patient_government_id_exists") {
+        setError(message);
+        return false;
+      }
+      if (err instanceof ApiError && err.status === 409 && err.key === "patient_id_exists") {
+        const patientNumberMessage = "This patient number is already in use.";
+        setManualNumberError(patientNumberMessage);
         return false;
       }
       if (err instanceof ApiError && err.status === 413) {
@@ -225,15 +310,31 @@ function PatientsPageContent() {
         setPhotoError(message);
         return false;
       }
+      if (err instanceof ApiError && err.status === 400) {
+        setServerFieldErrors(mapValidationErrorToField(message));
+        setValidationError(message);
+        return false;
+      }
       setError(message);
       return false;
     }
   };
 
-  const handlePhotoChange = () => setPhotoError(null);
+  const handlePhotoChange = useCallback((photo?: File | null) => {
+    setPhotoError(null);
+    if (photo === undefined || !registrationMode) return;
+    setRegistrationDrafts((current) => ({
+      ...current,
+      [registrationMode]: {
+        values: current[registrationMode]?.values ?? {},
+        photo,
+      },
+    }));
+  }, [registrationMode]);
   const openRegistration = (mode: Exclude<RegistrationMode, null>) => {
     setNotice(null);
     setError(null);
+    setValidationError(null);
     setDuplicateReview(null);
     setComparisonOpen(false);
     setComparisonPatient(null);
@@ -241,6 +342,8 @@ function PatientsPageContent() {
     setConfirmedDuplicatePatientId(null);
     setReviewNotice(null);
     setPhotoError(null);
+    setManualNumberError(null);
+    setServerFieldErrors({});
     setRegistrationMode(mode);
   };
 
@@ -276,20 +379,21 @@ function PatientsPageContent() {
       </div>
 
       {notice ? <FeedbackMessage message={notice} kind="success" onDismiss={() => setNotice(null)} /> : null}
-      {error ? <FeedbackMessage message={error} kind="error" onDismiss={() => setError(null)} /> : null}
+      {error && !registrationMode ? <FeedbackMessage message={error} kind="error" onDismiss={() => setError(null)} /> : null}
       <PatientSearchList />
 
       <Dialog.Root
         open={registrationMode !== null}
+        modal
         onOpenChange={(open) => {
           if (!open) closeRegistration();
         }}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[80] bg-foreground/40 backdrop-blur-sm transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+          <Dialog.Backdrop className="patient-registration-backdrop pointer-events-auto touch-none fixed inset-0 z-[80] bg-foreground/40 backdrop-blur-sm transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
           <Dialog.Popup className="fixed inset-x-0 bottom-0 top-2 z-[81] flex flex-col overflow-hidden rounded-t-3xl border border-border bg-card text-card-foreground shadow-2xl outline-none transition-transform duration-200 data-[starting-style]:translate-y-4 data-[ending-style]:translate-y-4 sm:max-h-[90dvh] sm:rounded-2xl lg:inset-y-0 lg:right-0 lg:left-auto lg:top-0 lg:h-dvh lg:max-h-none lg:w-[min(48rem,52vw)] lg:max-w-none lg:translate-x-0 lg:translate-y-0 lg:rounded-r-none lg:rounded-l-2xl">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-7">
-              <div className="min-w-0">
+            <div className="sticky top-0 z-20 flex shrink-0 items-start justify-between gap-4 border-b border-border bg-card px-5 py-4 sm:px-7">
+              <div className="min-w-0 flex-1 pr-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
                   {registrationMode === "clinic-record" ? "Patient archive" : "New registration"}
                 </p>
@@ -302,16 +406,11 @@ function PatientsPageContent() {
                     : "Create a permanent patient record and record their first OPD visit."}
                 </Dialog.Description>
               </div>
-              <Button
+              <CloseButton
                 type="button"
-                variant="ghost"
-                size="icon"
                 aria-label="Close patient registration"
-                className="shrink-0"
-                onClick={closeRegistration}
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </Button>
+                onClick={() => closeRegistration()}
+              />
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
               {reviewNotice ? (
@@ -319,16 +418,53 @@ function PatientsPageContent() {
                   {reviewNotice}
                 </p>
               ) : null}
-              {error ? <div className="mb-5"><FeedbackMessage message={error} kind="error" onDismiss={() => setError(null)} /></div> : null}
+              {validationError || error ? (
+                <div className="mb-5">
+                  <FeedbackMessage
+                    message={validationError ?? error ?? ""}
+                    kind="error"
+                    onDismiss={() => {
+                      setValidationError(null);
+                      setError(null);
+                    }}
+                  />
+                </div>
+              ) : null}
               {registrationMode ? (
                 <PatientForm
                   key={registrationMode}
+                  initialValues={registrationDrafts[registrationMode]?.values}
+                  initialPhoto={registrationDrafts[registrationMode]?.photo}
                   className="border-0 bg-transparent p-0 shadow-none"
+                  variant={registrationMode === "new" ? "with-opd" : "clinic-record"}
                   onSubmit={handleSubmit}
+                  onValuesChange={updateRegistrationValues}
                   submitLabel={registrationMode === "clinic-record" ? "Add patient record" : "Register patient"}
-                  clearOnSuccess
                   enablePhoto
                   photoError={photoError}
+                  manualNumberError={manualNumberError}
+                  serverFieldErrors={serverFieldErrors}
+                  onFieldChange={(field) => {
+                    const relatedFields = field === "dateOfBirth" || field === "age"
+                      ? ["dateOfBirth", "age"] as const
+                      : [field];
+                    setValidationError(null);
+                    setServerFieldErrors((current) => {
+                      const next = { ...current };
+                      relatedFields.forEach((relatedField) => {
+                        delete next[relatedField];
+                      });
+                      return next;
+                    });
+                    if (field === "year" || field === "positionInYear") {
+                      setManualNumberError(null);
+                      setError(null);
+                    }
+                  }}
+                  onManualNumberChange={() => {
+                    setManualNumberError(null);
+                    setError(null);
+                  }}
                   onPhotoChange={handlePhotoChange}
                 />
               ) : null}
@@ -339,12 +475,13 @@ function PatientsPageContent() {
 
       <Dialog.Root
         open={duplicateReview !== null}
+        modal
         onOpenChange={(open) => {
           if (!open) setDuplicateReview(null);
         }}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[90] bg-foreground/50 backdrop-blur-sm data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+          <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[90] bg-foreground/50 backdrop-blur-sm data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
           <Dialog.Popup className="fixed left-1/2 top-1/2 z-[91] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-2xl outline-none sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -354,17 +491,14 @@ function PatientsPageContent() {
                   <Dialog.Description className="mt-1 text-sm text-muted-foreground">
                     Check the existing record before you continue.
                   </Dialog.Description>
+                  <p className="mt-2 text-sm text-foreground" role="alert">{duplicateReview?.message}</p>
                 </div>
               </div>
-              <Button
+              <CloseButton
                 type="button"
-                variant="ghost"
-                size="icon"
                 aria-label="Close duplicate notice"
                 onClick={() => setDuplicateReview(null)}
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </Button>
+              />
             </div>
             {duplicateReview?.patientId ? (
               <p className="mt-4 rounded-lg bg-background px-3 py-2 font-mono text-sm font-semibold text-foreground">
@@ -396,10 +530,11 @@ function PatientsPageContent() {
 
       <Dialog.Root
         open={comparisonOpen}
+        modal
         onOpenChange={(open) => setComparisonOpen(open)}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[100] bg-foreground/60 backdrop-blur-sm data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+          <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/60 backdrop-blur-sm data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
           <Dialog.Popup className="fixed left-1/2 top-1/2 z-[101] flex max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl outline-none sm:w-[calc(100%-3rem)]">
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
               <div>
@@ -408,15 +543,11 @@ function PatientsPageContent() {
                   Compare the new details with the existing patient record.
                 </Dialog.Description>
               </div>
-              <Button
+              <CloseButton
                 type="button"
-                variant="ghost"
-                size="icon"
                 aria-label="Close comparison"
                 onClick={() => setComparisonOpen(false)}
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </Button>
+              />
             </div>
             <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
               {comparisonLoading ? (

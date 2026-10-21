@@ -42,10 +42,45 @@ describe("clinic staff form", () => {
     expect(screen.getByLabelText(/First name/)).toBeRequired();
     expect(screen.getByLabelText(/Last name/)).toBeRequired();
     expect(screen.getByLabelText(/Phone/)).toBeRequired();
-    expect(screen.getByLabelText(/Password/)).toBeRequired();
+    expect(screen.getByLabelText(/Password/, { selector: "input" })).toBeRequired();
     expect(screen.getByLabelText(/Role/)).toBeRequired();
     expect(screen.getByLabelText("Email")).not.toBeRequired();
-    expect(screen.getByText(/At least 8 characters, one number, and one special character/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Password requirements" })).toBeInTheDocument();
+    expect(screen.getByText("At least one lowercase letter")).toBeInTheDocument();
+    expect(screen.getByText("At least one uppercase letter")).toBeInTheDocument();
+    expect(screen.queryByText("Create a password that meets each requirement below.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Password checklist")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tick off each item as you go.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No spaces or whitespace")).not.toBeInTheDocument();
+    expect(screen.queryByText("No more than 72 characters")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Password requirements" }))
+      .not.toHaveClass("border", "bg-muted/50");
+  });
+
+  it("marks password requirements green as they are met", async () => {
+    renderUsersPage();
+    await screen.findByText("No users match the current filters.");
+
+    fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), { target: { value: "Clinic123!" } });
+
+    expect(screen.getByText("At least 8 characters").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one lowercase letter").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one uppercase letter").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one number").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one special character").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("All set! This password is ready.")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["a password containing a space", "Strong Pass1!"],
+    ["a password longer than 72 characters", `${"a".repeat(71)}A1!`],
+  ])("does not show the ready message for %s", async (_description, password) => {
+    renderUsersPage();
+    await screen.findByText("No users match the current filters.");
+
+    fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), { target: { value: password } });
+
+    expect(screen.queryByText("All set! This password is ready.")).not.toBeInTheDocument();
   });
 
   it("shows the shared phone-format message and prevents an invalid user request", async () => {
@@ -55,7 +90,7 @@ describe("clinic staff form", () => {
     fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
     fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
     fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "1" } });
-    fireEvent.change(screen.getByLabelText(/Password/), { target: { value: "StrongPass1!" } });
+    fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), { target: { value: "StrongPass1!" } });
     expect(screen.getByText("Phone numbers must start with 0.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Create user" }));
@@ -64,11 +99,68 @@ describe("clinic staff form", () => {
     expect(apiRequest).not.toHaveBeenCalledWith("/users", expect.objectContaining({ method: "POST" }));
   });
 
+  it("shows backend password validation errors beside the create password field", async () => {
+    vi.mocked(apiRequest)
+      .mockResolvedValueOnce({
+        users: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 1 },
+      })
+      .mockRejectedValueOnce(new Error("password must not contain a commonly used phrase"));
+    renderUsersPage();
+    await screen.findByText("No users match the current filters.");
+
+    fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
+    fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
+    fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "0241234567" } });
+    fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), { target: { value: "StrongPass1!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+
+    expect(await screen.findByText("password must not contain a commonly used phrase")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Password/, { selector: "input" })).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("shows a specific frontend error for spaces without calling the API", async () => {
+    renderUsersPage();
+    await screen.findByText("No users match the current filters.");
+
+    fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
+    fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
+    fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "0241234567" } });
+    fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), { target: { value: "Strong Pass1!" } });
+
+    expect(screen.getByText("At least 8 characters").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one lowercase letter").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one uppercase letter").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one number").closest("li")).toHaveClass("text-success");
+    expect(screen.getByText("At least one special character").closest("li")).toHaveClass("text-success");
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+
+    expect(await screen.findByText("Password must not contain spaces.")).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith("/users", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("shows a specific frontend error for passwords over 72 characters", async () => {
+    renderUsersPage();
+    await screen.findByText("No users match the current filters.");
+
+    fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
+    fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
+    fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "0241234567" } });
+    fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), {
+      target: { value: `${"a".repeat(71)}A1!` },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+
+    expect(await screen.findByText("Password must not exceed 72 characters.")).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith("/users", expect.objectContaining({ method: "POST" }));
+    expect(screen.queryByRole("alert", { name: /Unable to save user/ })).not.toBeInTheDocument();
+  });
+
   it("lets staff reveal and hide a password while typing", async () => {
     renderUsersPage();
     await screen.findByText("No users match the current filters.");
 
-    const password = screen.getByLabelText(/Password/);
+    const password = screen.getByLabelText(/Password/, { selector: "input" });
     expect(password).toHaveAttribute("type", "password");
     fireEvent.click(screen.getByRole("button", { name: "Show password" }));
     expect(password).toHaveAttribute("type", "text");

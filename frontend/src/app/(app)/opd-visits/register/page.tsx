@@ -4,17 +4,19 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
-import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Loader2, Search, Undo2, UserRound, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Loader2, Search, Undo2, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
 import { buildOPDVisitQuery, type VisitDateRange } from "@/lib/opd-visits";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PatientAvatar } from "@/components/features/opd/patient-avatar";
 import type { Patient } from "@/types/patient";
 import type { OPDVisit, OPDVisitListResponse } from "@/types/opd";
 
@@ -96,13 +98,41 @@ function PatientDetailsDialog({
 }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const [expandedId, setExpandedId] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     const element = dialogRef.current;
-    if (element && !element.open && typeof element.showModal === "function") {
-      element.showModal();
-    }
+    if (!element || typeof element.showModal !== "function") return;
+
+    const scrollY = window.scrollY;
+    if (!element.open) element.showModal();
+    titleRef.current?.focus({ preventScroll: true });
+
+    const body = document.body;
+    const previousBodyStyles = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = `${document.documentElement.clientWidth}px`;
+    body.style.overflow = "hidden";
+
+    return () => {
+      Object.assign(body.style, previousBodyStyles);
+      const html = document.documentElement;
+      const previousScrollBehavior = html.style.scrollBehavior;
+      html.style.scrollBehavior = "auto";
+      window.scrollTo(0, scrollY);
+      html.style.scrollBehavior = previousScrollBehavior;
+    };
   }, []);
 
   const closeDialog = () => dialogRef.current?.close();
@@ -132,38 +162,36 @@ function PatientDetailsDialog({
     <dialog
       ref={dialogRef}
       aria-labelledby="patient-details-title"
+      aria-modal="true"
       onClose={onClose}
       onClick={(event) => {
         if (event.target === event.currentTarget) closeDialog();
       }}
-      className="m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card p-0 text-foreground shadow-xl backdrop:bg-black/50 open:flex max-sm:mb-0 max-sm:mt-auto max-sm:max-h-[90dvh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none"
+      className="opd-patient-details-dialog m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card p-0 text-foreground shadow-xl backdrop:bg-black/50 open:flex"
     >
-      <div className="flex items-start justify-between gap-3 border-b border-border p-4 sm:p-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <UserRound className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h2 id="patient-details-title" className="truncate text-lg font-semibold text-foreground">
-              {formatPatientName(patient)}
-            </h2>
-            <p className="text-sm text-muted-foreground">Patient details and attendance history</p>
-          </div>
+      <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 border-b border-border p-4 sm:p-5">
+        <PatientAvatar key={`${patient.id}:${patient.imageUrl ?? ""}`} patient={patient} size="medium" />
+        <div className="min-w-0">
+          <h2
+            ref={titleRef}
+            id="patient-details-title"
+            tabIndex={-1}
+            className="break-words text-lg font-semibold leading-snug text-foreground"
+          >
+            {formatPatientName(patient)}
+          </h2>
+          <p className="text-sm leading-5 text-muted-foreground">Patient details and attendance history</p>
         </div>
-        <Button
+        <CloseButton
           type="button"
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 shrink-0"
+          className="col-start-3 row-start-1"
           aria-label="Close details"
           onClick={closeDialog}
-        >
-          <X className="h-4 w-4" aria-hidden="true" />
-        </Button>
+        />
       </div>
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
           {facts.map((fact) => (
             <div key={fact.label} className="min-w-0">
               <dt className="text-xs text-muted-foreground">{fact.label}</dt>
@@ -271,7 +299,7 @@ function PatientDetailsDialog({
         </section>
       </div>
 
-      <div className="flex gap-2 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+      <div className="flex shrink-0 gap-2 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
         <Button type="button" variant="outline" className="min-h-11 flex-1" onClick={closeDialog}>
           Close
         </Button>
@@ -829,9 +857,11 @@ function OPDVisitRegistrationContent() {
                 {selectedPatient ? (
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <UserRound className="h-5 w-5" aria-hidden="true" />
-                      </span>
+                      <PatientAvatar
+                        key={`${selectedPatient.id}:${selectedPatient.imageUrl ?? ""}`}
+                        patient={selectedPatient}
+                        size="small"
+                      />
                       <div className="min-w-0">
                         <p className="truncate font-semibold">
                           {formatPatientName(selectedPatient)}
@@ -991,6 +1021,7 @@ function OPDVisitRegistrationContent() {
         ref={dialogRef}
         aria-labelledby="visit-saved-title"
         aria-describedby="visit-saved-description"
+        aria-modal="true"
         onClose={handleSuccessClosed}
         onClick={(event) => {
           if (event.target === event.currentTarget) closeSuccess();

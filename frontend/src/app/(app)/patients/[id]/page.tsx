@@ -34,8 +34,9 @@ import { formatPatientName } from "@/lib/patient-name";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolvePatientPhotoUrl } from "@/lib/patient-photo";
+import { buildPatientUpdateBody } from "@/lib/patients";
 import type { PatientFormValues } from "@/schemas/patient";
-import type { Patient } from "@/types/patient";
+import type { Patient, PatientUpdateInput } from "@/types/patient";
 import type { OPDVisitListResponse } from "@/types/opd";
 
 const VISITS_PER_PAGE = 20;
@@ -96,14 +97,51 @@ export default function PatientDetailPage() {
     ? visitHistory?.opdVisits.reduce((latest, visit) => visit.date > latest ? visit.date : latest, "")
     : "";
 
-  const handleSave = async (values: PatientFormValues) => {
+  const handleSave = async (values: PatientFormValues, photo: File | null) => {
     setSaveNotice(null);
     setSaveError(null);
+
+    const update: PatientUpdateInput = {
+      firstName: values.firstName.trim(),
+      lastName: values.lastName.trim(),
+      otherName: values.otherName?.trim() || null,
+      dateOfBirth: values.dateOfBirth || null,
+      age: values.age === undefined || values.age === "" ? null : Number(values.age),
+      phone: values.phone?.trim() || null,
+      ghCardNumber: values.ghCardNumber?.trim() || null,
+      nhisNumber: values.nhisNumber?.trim() || null,
+      region: values.region?.trim() || null,
+      district: values.district?.trim() || null,
+      town: values.town?.trim() || null,
+      area: values.area?.trim() || null,
+      gender: values.gender === "" || values.gender === undefined ? undefined : values.gender,
+      maritalStatus: values.maritalStatus === "" || values.maritalStatus === undefined
+        ? undefined
+        : values.maritalStatus,
+    };
+
+    const clearsExistingValue = (next: string | number | null | undefined, current: string | number | null | undefined) =>
+      next === null && current !== null && current !== undefined && String(current).trim() !== "";
+    if (photo && (
+      clearsExistingValue(update.otherName, patient?.otherName)
+      || clearsExistingValue(update.dateOfBirth, patient?.dateOfBirth?.slice(0, 10))
+      || clearsExistingValue(update.age, patient?.age)
+      || clearsExistingValue(update.phone, patient?.phone)
+      || clearsExistingValue(update.ghCardNumber, patient?.ghCardNumber)
+      || clearsExistingValue(update.nhisNumber, patient?.nhisNumber)
+      || clearsExistingValue(update.region, patient?.region)
+      || clearsExistingValue(update.district, patient?.district)
+      || clearsExistingValue(update.town, patient?.town)
+      || clearsExistingValue(update.area, patient?.area)
+    )) {
+      setSaveError("Save cleared details without a new photo first. The photo upload request cannot clear empty fields.");
+      return false;
+    }
 
     try {
       await apiRequest(`/patients/${encodeURIComponent(patientId)}`, {
         method: "PATCH",
-        body: JSON.stringify(values),
+        body: buildPatientUpdateBody(update, photo),
       });
       await refetch();
       setIsEditing(false);
@@ -197,6 +235,8 @@ export default function PatientDetailPage() {
               gender: patient.gender ?? "",
               maritalStatus: patient.maritalStatus ?? "",
             }}
+            existingPhotoUrl={patient.imageUrl}
+            enablePhoto
             onSubmit={handleSave}
             submitLabel="Save changes"
           />

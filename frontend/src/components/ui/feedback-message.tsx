@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FocusEvent } from "react";
-import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CloseButton } from "@/components/ui/close-button";
 
 type FeedbackMessageProps = {
   message: string;
@@ -52,14 +52,12 @@ export function FeedbackMessage({ message, kind, onDismiss }: FeedbackMessagePro
       )}
     >
       <span className="min-w-0 flex-1">{message}</span>
-      <button
+      <CloseButton
         type="button"
         aria-label="Dismiss message"
         onClick={onDismiss}
-        className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <X className="h-4 w-4" />
-      </button>
+        className="-mr-1 -mt-1"
+      />
     </div>
   );
 }

@@ -7,12 +7,13 @@ import { Check, Eye, EyeOff, Plus, Search, X } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
+import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { isStrongPassword, PASSWORD_STRENGTH_MESSAGE } from "@/lib/password";
+import { getPasswordPolicyError, isUserPasswordValid } from "@/lib/password";
 import { getPhoneNumberError, sanitizePhoneNumber } from "@/lib/phone";
 import type { ClinicUser, UsersListResponse } from "@/types/user";
 
@@ -96,8 +97,15 @@ export default function UsersPage() {
       setPhoneError(phoneValidationError);
       return;
     }
-    if (formState.password && !isStrongPassword(formState.password)) {
-      setPasswordError(PASSWORD_STRENGTH_MESSAGE);
+    const passwordPolicyError = formState.password
+      ? getPasswordPolicyError(formState.password)
+      : null;
+    if (passwordPolicyError) {
+      setPasswordError(passwordPolicyError);
+      return;
+    }
+    if (formState.password && !isUserPasswordValid(formState.password)) {
+      setPasswordError("Please meet all password requirements before continuing.");
       return;
     }
     if (!editingUserId && !formState.password) {
@@ -140,7 +148,11 @@ export default function UsersPage() {
       await refetch();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to save user.";
-      setError(message);
+      if (/password/i.test(message)) {
+        setPasswordError(message);
+      } else {
+        setError(message);
+      }
     }
   };
 
@@ -279,7 +291,11 @@ export default function UsersPage() {
                     type={isPasswordVisible ? "text" : "password"}
                     autoComplete="new-password"
                     required={!editingUserId}
-                    aria-describedby="user-password-hint"
+                    aria-describedby={
+                      editingUserId && !formState.password
+                        ? "user-password-hint"
+                        : "user-password-requirements"
+                    }
                     aria-invalid={Boolean(passwordError)}
                     placeholder={editingUserId ? "Enter a new password to reset it" : "Create a secure password"}
                     value={formState.password}
@@ -299,9 +315,14 @@ export default function UsersPage() {
                     {isPasswordVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                   </button>
                 </div>
-                <p id="user-password-hint" className="text-xs text-muted-foreground">
-                  {editingUserId ? "Optional. " : ""}At least 8 characters, one number, and one special character.
-                </p>
+                {editingUserId && !formState.password ? (
+                  <p id="user-password-hint" className="text-xs text-muted-foreground">
+                    Optional. Leave blank to keep the current password.
+                  </p>
+                ) : null}
+                {!editingUserId || formState.password ? (
+                  <PasswordRequirements id="user-password-requirements" password={formState.password} />
+                ) : null}
                 {editingUserId ? <p className="text-xs text-muted-foreground">The user will be signed out of all devices.</p> : null}
                 {passwordError ? <p className="text-sm text-destructive" role="alert">{passwordError}</p> : null}
               </div>

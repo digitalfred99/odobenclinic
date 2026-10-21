@@ -12,10 +12,10 @@ import {
   ShieldCheck,
   UserCircle2,
   Users,
-  X,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { cn } from "@/lib/utils";
 import { displayRoleLabel, type UserRole } from "@/types/auth";
 
@@ -189,14 +189,11 @@ export function AppSidebar() {
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-4">
           <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-primary">Menu</div>
-          <button
+          <CloseButton
             type="button"
             aria-label="Close navigation menu"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted"
             onClick={() => setMobileOpenForPath(null)}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          />
         </div>
         <SidebarContent
           pathname={pathname}
