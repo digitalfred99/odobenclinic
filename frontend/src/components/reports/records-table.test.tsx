@@ -44,8 +44,44 @@ describe("patient report records", () => {
       }
       return {
         rows: [
-          { patientId: "PT-1/2026", firstName: "Ama", otherName: "Yaa", lastName: "Mensah", name: "Ama Yaa Mensah", age: 30, gender: "female", area: null, region: "Greater Accra", district: "Accra Metro", town: "Accra", postalAddress: "P.O. Box 12", date: "2026-10-04", dateOfBirth: null, phone: null, ghCardNumber: null, nhisNumber: null },
-          { patientId: "PT-2/2026", name: "Kojo Mensah", age: 32, gender: "male", area: "Osu", date: "2026-10-04", dateOfBirth: "1994-01-01", phone: "0240000000", ghCardNumber: "GHA-123456789-0", nhisNumber: "NHIS-1" },
+          {
+            patientId: "PT-1/2026",
+            firstName: "Ama",
+            otherName: "Yaa",
+            lastName: "Mensah",
+            name: "Ama Yaa Mensah",
+            age: 30,
+            gender: "female",
+            area: null,
+            region: "Greater Accra",
+            district: "Accra Metro",
+            town: "Accra",
+            date: "2026-10-04",
+            dateOfBirth: null,
+            phone: null,
+            ghCardNumber: null,
+            nhisNumber: null,
+            email: null,
+            religion: null,
+            postalAddress: null,
+            occupation: null,
+          },
+          {
+            patientId: "PT-2/2026",
+            name: "Kojo Mensah",
+            age: 32,
+            gender: "male",
+            area: "Osu",
+            date: "2026-10-04",
+            dateOfBirth: "1994-01-01",
+            phone: "0240000000",
+            ghCardNumber: "GHA-123456789-0",
+            nhisNumber: "NHIS-1",
+            email: "kojo@example.test",
+            religion: "christianity",
+            postalAddress: "P.O. Box 7",
+            occupation: "Teacher",
+          },
         ],
         total: 2,
         pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },
@@ -82,7 +118,8 @@ describe("patient report records", () => {
   it("searches by patient name and shows actionable missing-field details", async () => {
     const view = renderTable();
     expect(await screen.findAllByText("No missing details in these checks")).not.toHaveLength(0);
-    expect(await screen.findAllByText("5 Missing details")).toHaveLength(2);
+    expect(await screen.findAllByText("9 missing details")).toHaveLength(2);
+    expect(screen.queryByRole("columnheader", { name: "Other name" })).not.toBeInTheDocument();
     const disclosures = [...view.container.querySelectorAll("details")];
     expect(disclosures).toHaveLength(1);
     expect(disclosures.every((disclosure) => !disclosure.open)).toBe(true);
@@ -95,17 +132,29 @@ describe("patient report records", () => {
     expect(within(expandedDisclosure).getByText(/Ghana Card/)).toBeInTheDocument();
     expect(within(expandedDisclosure).getByText(/NHIS number/)).toBeInTheDocument();
     expect(within(expandedDisclosure).getByText(/area/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/email address/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/religion/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/postal address/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/occupation/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText("These details were not provided by the patient."))
+      .toHaveClass("bg-muted/70", "italic", "text-muted-foreground");
 
     const desktopCheck = screen.getByRole("button", {
-      name: "5 missing details. Show missing items.",
+      name: "9 missing details. Show missing items.",
     });
-    expect(desktopCheck.querySelector("span[aria-hidden='true']")).toHaveTextContent("¡");
+    expect(desktopCheck.querySelector("span[aria-hidden='true']")).toHaveTextContent("9");
     expect(desktopCheck.querySelector("span[aria-hidden='true']")).toHaveClass("absolute", "-right-1.5", "-top-1.5");
     expect(desktopCheck).toHaveAttribute("aria-expanded", "false");
     fireEvent.mouseEnter(desktopCheck);
     expect(desktopCheck).toHaveAttribute("aria-expanded", "true");
     const desktopTooltip = screen.getByRole("tooltip");
     expect(desktopTooltip).toHaveTextContent("Missing phone number");
+    expect(desktopTooltip).toHaveTextContent("Missing email address");
+    expect(desktopTooltip).toHaveTextContent("Missing religion");
+    expect(desktopTooltip).toHaveTextContent("Missing postal address");
+    expect(desktopTooltip).toHaveTextContent("Missing occupation");
+    expect(within(desktopTooltip).getByText("These details were not provided by the patient."))
+      .toHaveClass("bg-muted/70", "italic", "text-muted-foreground");
     expect(desktopTooltip.parentElement).toBe(document.body);
     expect(desktopTooltip).toHaveClass("fixed", "z-[200]");
     fireEvent.mouseEnter(desktopTooltip);
@@ -119,11 +168,13 @@ describe("patient report records", () => {
     fireEvent.mouseLeave(desktopCheck);
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
     fireEvent.click(desktopCheck);
-    expect(desktopCheck).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-
-    fireEvent.click(desktopCheck);
     expect(desktopCheck).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByRole("tooltip"));
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
     fireEvent.pointerDown(document.body);
     expect(desktopCheck).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
@@ -133,12 +184,20 @@ describe("patient report records", () => {
     const patientLabels = [...patientCard!.querySelectorAll("dt")].map((label) => label.textContent);
     expect(patientLabels).toEqual(expect.arrayContaining(["Registered", "Age", "Sex", "Marital status"]));
     const detailLabels = [...patientCard!.querySelectorAll("section dl dt")].map((label) => label.textContent);
-    expect(detailLabels).toEqual(["Region", "District", "Town", "Area", "Postal address"]);
+    expect(detailLabels).toEqual(["Region", "District", "Town", "Area"]);
     expect(detailLabels).not.toContain("Phone");
     expect(detailLabels).not.toContain("Other name");
     const patientWithPhone = screen.getAllByText("Additional patient details")[1].closest("li");
     const contactLocationLabels = [...patientWithPhone!.querySelectorAll("section dl dt")].map((label) => label.textContent);
-    expect(contactLocationLabels).toEqual(["Phone", "Date of birth", "Area"]);
+    expect(contactLocationLabels).toEqual([
+      "Phone",
+      "Email",
+      "Date of birth",
+      "Religion",
+      "Occupation",
+      "Area",
+      "Postal address",
+    ]);
     expect(patientCard).toHaveTextContent("Record checks");
     expect(screen.getByText("For a wider, side-by-side view, open this report on a larger screen."))
       .toHaveClass("md:hidden");

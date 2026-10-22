@@ -331,3 +331,23 @@
 - Updated stale test expectations and fixtures to match current required patient fields, accessible filter labels, dashboard links, and responsive report markup.
 - No backend changes were needed or made.
 - Validation: all 42 test files pass (187 tests), full ESLint, `tsc --noEmit`, production build, and `git diff --check -- frontend` pass. Vitest still emits its existing config-loader compatibility warning.
+
+## Patient report record-check follow-up
+- Removed the separate "Other name" column from the patient report table; the formatted patient name remains.
+- Extended Record checks to include missing email, religion, postal address, and occupation alongside existing fields, with each missing value shown in the expandable details.
+- Added regression coverage for incomplete and complete patient records and verified the report table no longer has an "Other name" column.
+- Validation: report-table tests (4), targeted ESLint, TypeScript check, and `git diff --check -- frontend` pass.
+
+## Missing-details popover follow-up
+- Updated the missing-details count badge to show the actual number and standardized the label to "{count} missing details".
+- Clicking the trigger keeps the popover open; clicking inside it also keeps it open, while pointer interaction elsewhere dismisses it.
+- Validation: report-table tests (4), targeted ESLint, TypeScript check, and `git diff --check -- frontend` pass.
+
+## Patient missing-details clarification
+- Added a discreet note beneath the missing-field list in both desktop and mobile record checks: "These details were not provided by the patient."
+- Adjusted desktop popover placement to account for the added note.
+- Validation: report-table tests (4), targeted ESLint, TypeScript check, and `git diff --check -- frontend` pass.
+
+## Missing-details note styling
+- Visually separated the patient clarification from missing-field items with a subtle muted background, inset padding, and italic muted text using theme tokens.
+- Validation: report-table tests (4), targeted ESLint, TypeScript check, and `git diff --check -- frontend` pass.

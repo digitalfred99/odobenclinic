@@ -31,13 +31,16 @@ function RecordChecks({ message, missing }: { message: string | null; missing: s
     <details className="group min-w-40">
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-left text-sm text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         <span className="min-w-0">
-          <span className="block font-medium">{missing.length} Missing details</span>
+          <span className="block font-medium">{missing.length} missing details</span>
           <span className="block text-xs text-muted-foreground">View missing items</span>
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>
       <ul className="mt-2 space-y-1.5 rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">
         {missing.map((item) => <li key={item}>Missing {item}</li>)}
+        <li className="mt-2 rounded-md bg-muted/70 px-2.5 py-2 text-xs italic text-muted-foreground">
+          These details were not provided by the patient.
+        </li>
       </ul>
     </details>
   );
@@ -54,6 +57,7 @@ function DesktopRecordChecks({ patientId, message, missing }: {
   const [pinned, setPinned] = useState(false);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const tooltipRef = useRef<HTMLUListElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailsId = `record-checks-${patientId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
   const open = hovered || tooltipHovered || focused || pinned;
@@ -66,7 +70,13 @@ function DesktopRecordChecks({ patientId, message, missing }: {
     if (!open) return;
 
     const dismissOnOutsidePointer = (event: PointerEvent) => {
-      if (triggerRef.current?.contains(event.target as Node)) return;
+      const target = event.target;
+      if (
+        target instanceof Node &&
+        (triggerRef.current?.contains(target) || tooltipRef.current?.contains(target))
+      ) {
+        return;
+      }
       setPinned(false);
       setFocused(false);
       setHovered(false);
@@ -84,7 +94,7 @@ function DesktopRecordChecks({ patientId, message, missing }: {
   const updatePosition = () => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const tooltipHeight = Math.min(missing.length * 28 + 24, 200);
+    const tooltipHeight = Math.min(missing.length * 28 + 64, 240);
     const top = rect.bottom + tooltipHeight + 12 <= window.innerHeight
       ? rect.bottom + 8
       : Math.max(8, rect.top - tooltipHeight - 8);
@@ -135,25 +145,22 @@ function DesktopRecordChecks({ patientId, message, missing }: {
         }}
         onBlur={() => setFocused(false)}
         onClick={() => {
-          if (pinned) {
-            closePinned();
-          } else {
-            updatePosition();
-            setPinned(true);
-            setHovered(false);
-            setTooltipHovered(false);
-          }
+          updatePosition();
+          setPinned(true);
+          setHovered(false);
+          setTooltipHovered(false);
         }}
         onKeyDown={(event) => {
           if (event.key === "Escape") closePinned();
         }}
         className="relative inline-flex min-h-10 items-center rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 pr-4 text-left text-sm text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="font-medium">{missing.length} Missing details</span>
-        <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-card bg-primary text-[10px] font-bold leading-none text-primary-foreground">¡</span>
+        <span className="font-medium">{missing.length} missing details</span>
+        <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-card bg-primary text-[10px] font-bold leading-none text-primary-foreground">{missing.length}</span>
       </button>
       {open && position ? createPortal(
         <ul
+          ref={tooltipRef}
           id={detailsId}
           role="tooltip"
           onMouseEnter={() => {
@@ -172,6 +179,9 @@ function DesktopRecordChecks({ patientId, message, missing }: {
           }}
         >
           {missing.map((item) => <li key={item}>Missing {item}</li>)}
+          <li className="mt-2 rounded-md bg-muted/70 px-2.5 py-2 text-xs italic text-muted-foreground">
+            These details were not provided by the patient.
+          </li>
         </ul>,
         document.body
       ) : null}
@@ -355,6 +365,10 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
     if (!detail?.ghCardNumber?.trim()) missing.push("Ghana Card");
     if (!detail?.nhisNumber?.trim()) missing.push("NHIS number");
     if (!detail?.area?.trim()) missing.push("area");
+    if (!detail?.email?.trim()) missing.push("email address");
+    if (!detail?.religion?.trim()) missing.push("religion");
+    if (!detail?.postalAddress?.trim()) missing.push("postal address");
+    if (!detail?.occupation?.trim()) missing.push("occupation");
     const peers = duplicateGroups
       .filter((group) => group.pids.includes(r.pid))
       .flatMap((group) => group.pids.filter((pid) => pid !== r.pid).map((pid) => `${formatPatientDisplayId(pid)} (${group.reasons.join(", ")})`));
@@ -371,6 +385,10 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
       ["ghCard", "Ghana Card", !detail.ghCardNumber?.trim()],
       ["nhis", "NHIS number", !detail.nhisNumber?.trim()],
       ["area", "area", !detail.area?.trim()],
+      ["email", "email address", !detail.email?.trim()],
+      ["religion", "religion", !detail.religion?.trim()],
+      ["postalAddress", "postal address", !detail.postalAddress?.trim()],
+      ["occupation", "occupation", !detail.occupation?.trim()],
     ] as const;
     return details
       .filter(([key, , isMissing]) => isMissing && (!missingKey || key === missingKey))
@@ -425,7 +443,6 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                   <th className="px-3 py-1 font-semibold">Name</th>
                   {kind === "patients" ? (
                     <>
-                      <th className="px-3 py-1 font-semibold">Other name</th>
                       <th className="px-3 py-1 font-semibold">Email</th>
                       <th className="px-3 py-1 font-semibold">Postal address</th>
                       <th className="px-3 py-1 font-semibold">Religion</th>
@@ -455,7 +472,6 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                     <td className="max-w-64 break-words px-3 py-3">{nameOf(detailRows[i])}</td>
                     {kind === "patients" ? (
                       <>
-                        <td className="px-3 py-3">{detailRows[i]?.otherName?.trim() || "—"}</td>
                         <td className="max-w-56 break-words px-3 py-3">{detailRows[i]?.email?.trim() || "—"}</td>
                         <td className="max-w-56 break-words px-3 py-3">{detailRows[i]?.postalAddress?.trim() || "—"}</td>
                         <td className="px-3 py-3">{patientReligionLabel(detailRows[i]?.religion) || "—"}</td>
