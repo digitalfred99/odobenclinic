@@ -90,32 +90,61 @@ describe("PatientSearchList filters", () => {
         otherName: "Yaa",
         lastName: "Mensah",
         patientId: "PT-12/2026",
+        region: "Greater Accra",
+        district: "Accra Metro",
         town: "Odoben",
         area: "Awendadze",
+        postalAddress: "P.O. Box 12",
       }],
     });
 
     renderPatientSearch();
 
     expect(await screen.findByText("Ama Yaa Mensah")).toBeInTheDocument();
-    expect(await screen.findByText("OPD No. 12/2026 • Odoben • Awendadze")).toBeInTheDocument();
+    expect(await screen.findByText("OPD No. 12/2026 • Accra Metro • Odoben • Awendadze • P.O. Box 12")).toBeInTheDocument();
   });
 
-  it("shows optional email, postal address, occupation, and religion when available", async () => {
+  it("shows only recorded phone and insurance identifiers, omitting email, occupation, and religion", async () => {
     vi.mocked(apiRequest).mockResolvedValueOnce({
       patients: [{
         id: "patient-1",
         firstName: "Ama",
         lastName: "Mensah",
+        phone: "0240000000",
+        ghCardNumber: "GHA-123456789-0",
+        nhisNumber: "NHIS-12345",
         email: "ama@example.com",
-        postalAddress: "P.O. Box 12",
         occupation: "Teacher",
         religion: "christianity",
+        area: "  ",
       }],
     });
 
     renderPatientSearch();
 
-    expect(await screen.findByText("ama@example.com • P.O. Box 12 • Teacher • Christianity")).toBeInTheDocument();
+    expect(await screen.findByText("GHA-123456789-0 • NHIS-12345 • 0240000000")).toBeInTheDocument();
+    expect(screen.getByText("OPD No. unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/P\.O\. Box/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ama@example\.com|Teacher|Christianity/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/•\s*•/)).not.toBeInTheDocument();
+  });
+
+  it("hides the identifier line when phone, Ghana Card, and NHIS are not recorded", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      patients: [{
+        id: "patient-1",
+        firstName: "Ama",
+        lastName: "Mensah",
+        phone: "  ",
+        ghCardNumber: null,
+        nhisNumber: undefined,
+      }],
+    });
+
+    renderPatientSearch();
+
+    expect(await screen.findByText("Ama Mensah")).toBeInTheDocument();
+    expect(screen.getByText("OPD No. unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/Phone:|Ghana Card:|NHIS:/)).not.toBeInTheDocument();
   });
 });

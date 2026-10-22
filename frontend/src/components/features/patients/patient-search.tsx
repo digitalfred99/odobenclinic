@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { cn } from "@/lib/utils";
-import { patientReligionLabel, PATIENT_RELIGIONS, type PatientListResponse } from "@/types/patient";
+import { PATIENT_RELIGIONS, type Patient, type PatientListResponse } from "@/types/patient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +49,17 @@ function buildPatientQuery(searchTerm: string, filters: PatientFilters) {
 
   const query = params.toString();
   return query ? `?${query}` : "";
+}
+
+function patientContactSummary(patient: Patient) {
+  return [
+    patient.ghCardNumber,
+    patient.nhisNumber,
+    patient.phone,
+  ]
+    .map((value) => value?.trim() ?? "")
+    .filter(Boolean)
+    .join(" • ");
 }
 
 export function PatientSearchList({ className }: { className?: string }) {
@@ -230,15 +241,20 @@ export function PatientSearchList({ className }: { className?: string }) {
             <div className="min-w-0">
               <p className="font-medium text-foreground">{formatPatientName(patient)}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                OPD No. {patient.patientId ? formatPatientDisplayId(patient.patientId) : "unavailable"}
-                {patient.town ? ` • ${patient.town}` : ""}
-                {patient.area ? ` • ${patient.area}` : ""}
+                {[
+                  `OPD No. ${patient.patientId ? formatPatientDisplayId(patient.patientId) : "unavailable"}`,
+                  patient.district,
+                  patient.town,
+                  patient.area,
+                  patient.postalAddress,
+                ]
+                  .map((value) => value?.trim())
+                  .filter((value): value is string => Boolean(value))
+                  .join(" • ")}
               </p>
-              {[patient.email, patient.postalAddress, patient.occupation, patientReligionLabel(patient.religion)]
-                .some((value) => Boolean(value?.trim())) ? (
+              {patientContactSummary(patient) ? (
                 <p className="mt-1 break-words text-sm text-muted-foreground">
-                  {[patient.email, patient.postalAddress, patient.occupation, patientReligionLabel(patient.religion)]
-                    .filter((value) => Boolean(value?.trim())).join(" • ")}
+                  {patientContactSummary(patient)}
                 </p>
               ) : null}
             </div>

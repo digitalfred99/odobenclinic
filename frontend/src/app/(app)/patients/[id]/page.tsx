@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Dialog } from "@base-ui/react/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
 import Image from "next/image";
@@ -30,6 +31,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { PatientForm } from "@/components/features/patients/patient-form";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { ApiError, apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
@@ -69,6 +71,7 @@ export default function PatientDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [serverFieldErrors, setServerFieldErrors] = useState<Partial<Record<keyof PatientFormValues, string>>>({});
@@ -276,6 +279,34 @@ export default function PatientDetailPage() {
         </div>
       ) : null}
 
+      {patient?.imageUrl ? (
+        <Dialog.Root open={photoOpen} modal onOpenChange={setPhotoOpen}>
+          <Dialog.Portal>
+            <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/50 backdrop-blur-sm" />
+            <Dialog.Popup
+              className="fixed left-1/2 top-1/2 z-[101] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-card p-3 text-card-foreground shadow-xl outline-none sm:p-5"
+            >
+              <div className="flex items-center justify-between gap-3 pb-3">
+                <Dialog.Title className="min-w-0 truncate text-lg font-semibold text-foreground">
+                  Patient photo of {formatPatientName(patient)}
+                </Dialog.Title>
+                <CloseButton aria-label="Close patient photo" onClick={() => setPhotoOpen(false)} />
+              </div>
+              <div className="relative h-[70dvh] max-h-[48rem] min-h-[12rem] w-full overflow-hidden rounded-xl bg-muted/30">
+                <Image
+                  src={resolvePatientPhotoUrl(patient.imageUrl)}
+                  alt={`Patient photo of ${formatPatientName(patient)}`}
+                  fill
+                  unoptimized
+                  sizes="(max-width: 640px) 100vw, 80vw"
+                  className="object-contain"
+                />
+              </div>
+            </Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
+      ) : null}
+
       {patient && !isEditing ? (
         <div className="space-y-5">
           <section className="rounded-2xl border border-border bg-card p-6 shadow-sm print:shadow-none">
@@ -292,14 +323,21 @@ export default function PatientDetailPage() {
                 </p>
               </div>
               {patient.imageUrl ? (
-                <Image
-                  src={resolvePatientPhotoUrl(patient.imageUrl)}
-                  alt={`Patient photo of ${formatPatientName(patient)}`}
-                  width={96}
-                  height={96}
-                  unoptimized
-                  className="h-24 w-24 rounded-xl border border-border object-cover"
-                />
+                <button
+                  type="button"
+                  aria-label={`View photo of ${formatPatientName(patient)}`}
+                  onClick={() => setPhotoOpen(true)}
+                  className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Image
+                    src={resolvePatientPhotoUrl(patient.imageUrl)}
+                    alt={`Patient photo of ${formatPatientName(patient)}`}
+                    width={96}
+                    height={96}
+                    unoptimized
+                    className="h-24 w-24 rounded-xl border border-border object-cover"
+                  />
+                </button>
               ) : null}
             </div>
 

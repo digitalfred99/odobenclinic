@@ -124,6 +124,19 @@ describe("PatientDetailPage", () => {
 
     const photo = await screen.findByRole("img", { name: "Patient photo of Ama Mensah" });
     expect(photo).toHaveAttribute("src", expect.stringContaining("/uploads/patients/ama.jpg"));
+    fireEvent.click(screen.getByRole("button", { name: "View photo of Ama Mensah" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Patient photo of Ama Mensah" });
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveClass("max-w-5xl");
+    expect(screen.getByRole("button", { name: "Close patient photo" })).toBeInTheDocument();
+    expect(dialog.querySelector("img")).toHaveAttribute(
+      "src",
+      expect.stringContaining("/uploads/patients/ama.jpg")
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Close patient photo" }));
+    expect(screen.queryByRole("dialog", { name: "Patient photo of Ama Mensah" })).not.toBeInTheDocument();
   });
 
   it("saves only editable patient fields as JSON and enables photo replacement", async () => {

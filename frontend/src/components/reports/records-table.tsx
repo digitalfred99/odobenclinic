@@ -156,12 +156,17 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
   };
   const nameOf = (d: ReportRow | null) => d ? formatPatientName(d) || d.name : isFetching ? "…" : "—";
   const dateLabel = (r: Rec) => formatReportDate(r.date);
-  const patientDetailFields = (detail: ReportRow | null): [string, string][] => [
-    ["Other name", detail?.otherName?.trim() ?? ""],
+  const patientDetailFields = (detail: ReportRow | null, area: string): [string, string][] => [
+    ["Phone", detail?.phone?.trim() ?? ""],
     ["Email", detail?.email?.trim() ?? ""],
-    ["Postal address", detail?.postalAddress?.trim() ?? ""],
+    ["Date of birth", detail?.dateOfBirth ? formatReportDate(detail.dateOfBirth) : ""],
     ["Religion", patientReligionLabel(detail?.religion)],
     ["Occupation", detail?.occupation?.trim() ?? ""],
+    ["Region", detail?.region?.trim() ?? ""],
+    ["District", detail?.district?.trim() ?? ""],
+    ["Town", detail?.town?.trim() ?? ""],
+    ["Area", placeLabel(detail?.area?.trim() || area)],
+    ["Postal address", detail?.postalAddress?.trim() ?? ""],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
   const maritalStatusLabel = (detail: ReportRow | null) => {
     if (!detail) return "—";
@@ -188,7 +193,7 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
       .flatMap((group) => group.pids.filter((pid) => pid !== r.pid).map((pid) => `${formatPatientDisplayId(pid)} (${group.reasons.join(", ")})`));
     const checks = missingKey === "duplicate" ? peers.length ? `Possible match: ${peers.join("; ")}` : "No other possible match in the loaded records."
       : missingKey ? `Missing ${missingKey === "ghCard" ? "Ghana Card" : missingKey === "nhis" ? "NHIS number" : missingKey === "dob" ? "date of birth" : missingKey === "phone" ? "phone number" : "area"}`
-        : missing.length ? `Missing: ${missing.join(", ")}` : "No missing fields in these checks";
+        : missing.length ? `Missing: ${missing.join(", ")}` : "No missing details in these checks";
     return checks;
   };
 
@@ -297,27 +302,93 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
             </table>
           </div>
 
-          <ul className="space-y-2 md:hidden">
+          <p className="mb-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground md:hidden">
+            For a wider, side-by-side view, open this report on a larger screen.
+          </p>
+          <ul className="space-y-3 md:hidden">
             {pageRows.map((r, i) => (
-              <li key={`${r.pid}-${r.date}-${i}`} className="rounded-xl border border-border bg-background p-4">
-                <p className="break-words font-medium text-foreground">{nameOf(detailRows[i])}</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  OPD No. <span className="font-mono text-xs">{formatPatientDisplayId(r.pid)}</span> · {r.age ?? "—"} yrs · <span className="capitalize">{r.sex === "other" ? "sex not recorded" : r.sex}</span> · {maritalStatusLabel(detailRows[i])}
-                </p>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {placeLabel(r.area)} · {dateLabel(r)} {timeLabel(r)}{kind === "visits" ? ` · ${typeLabel(r)}` : ""}
-                </p>
-                {kind === "patients" && patientDetailFields(detailRows[i]).length ? (
-                  <p className="mt-1 break-words text-sm text-muted-foreground">
-                    {patientDetailFields(detailRows[i]).map(([label, value]) => `${label}: ${value}`).join(" · ")}
-                  </p>
+              <li key={`${r.pid}-${r.date}-${i}`} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <div className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {kind === "visits" ? "Patient" : "Registered patient"}
+                    </p>
+                    <h4 className="mt-1 break-words text-base font-semibold leading-snug text-foreground">{nameOf(detailRows[i])}</h4>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-border bg-muted/50 px-2.5 py-1.5 font-mono text-xs font-medium text-foreground">
+                    <span className="sr-only">OPD No. </span>{formatPatientDisplayId(r.pid)}
+                  </span>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-border bg-muted/20 px-4 py-3">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">{kind === "visits" ? "Visit date" : "Registered"}</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-foreground">{dateLabel(r)} {timeLabel(r)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Age</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-foreground">{r.age === null ? "Not recorded" : `${r.age} years`}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Sex</dt>
+                    <dd className="mt-0.5 text-sm font-medium capitalize text-foreground">{r.sex === "other" ? "Not recorded" : r.sex}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Marital status</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-foreground">{maritalStatusLabel(detailRows[i])}</dd>
+                  </div>
+                  {kind === "visits" ? (
+                    <div className="col-span-2">
+                      <dt className="text-xs text-muted-foreground">Area</dt>
+                      <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{placeLabel(r.area)}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+
+                {kind === "patients" && patientDetailFields(detailRows[i], r.area).length ? (
+                  <section className="px-4 py-3">
+                    <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Additional patient details</h5>
+                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3">
+                      {patientDetailFields(detailRows[i], r.area).map(([label, value]) => (
+                        <div key={label} className={label === "Postal address" || label === "Email" ? "col-span-2 min-w-0" : "min-w-0"}>
+                          <dt className="text-xs text-muted-foreground">{label}</dt>
+                          <dd className="mt-0.5 break-words text-sm text-foreground">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
                 ) : null}
+
                 {kind === "visits" ? (
-                  <p className="mt-1 break-words text-sm text-muted-foreground">
-                    {detailRows[i]?.remarks || "No visit remarks"} · Recorded {formatReportDateTime(detailRows[i]?.visitRecordedAt)} · {Math.max(1, visitCounts.get(r.pid) ?? 0)} visits in report period
-                  </p>
+                  <section className="px-4 py-3">
+                    <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visit details</h5>
+                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div className="col-span-2 min-w-0">
+                        <dt className="text-xs text-muted-foreground">Remarks</dt>
+                        <dd className="mt-0.5 break-words text-sm text-foreground">{detailRows[i]?.remarks || "No visit remarks"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Recorded at</dt>
+                        <dd className="mt-0.5 text-sm text-foreground">{formatReportDateTime(detailRows[i]?.visitRecordedAt)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Visits in report period</dt>
+                        <dd className="mt-0.5 text-sm text-foreground">{Math.max(1, visitCounts.get(r.pid) ?? 0)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Visit type</dt>
+                        <dd className="mt-0.5 text-sm capitalize text-foreground">{typeLabel(r)}</dd>
+                      </div>
+                    </dl>
+                  </section>
                 ) : null}
-                {kind === "patients" ? <p className="mt-1 break-words text-sm text-muted-foreground">{dataChecks(r, detailRows[i])}</p> : null}
+
+                {kind === "patients" ? (
+                  <div className="border-t border-border px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Record checks</p>
+                    <p className="mt-1 break-words text-sm text-foreground">{dataChecks(r, detailRows[i])}</p>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
