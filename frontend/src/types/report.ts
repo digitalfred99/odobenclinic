@@ -1,3 +1,5 @@
+import type { PatientReligion } from "@/types/patient";
+
 export type ReportRow = {
   patientId: string;
   firstName?: string;
@@ -7,6 +9,10 @@ export type ReportRow = {
   dateOfBirth?: string | null;
   age: number | null;
   phone?: string | null;
+  email?: string | null;
+  postalAddress?: string | null;
+  occupation?: string | null;
+  religion?: PatientReligion | null;
   region?: string | null;
   district?: string | null;
   town?: string | null;

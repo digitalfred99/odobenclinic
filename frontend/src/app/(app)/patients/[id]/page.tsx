@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   ArrowLeft,
   Building2,
+  BriefcaseBusiness,
   Cake,
   CalendarDays,
   CalendarPlus,
@@ -17,6 +18,7 @@ import {
   CreditCard,
   IdCard,
   MapPin,
+  Mail,
   Phone,
   Pencil,
   ShieldCheck,
@@ -29,14 +31,15 @@ import { useParams, useRouter } from "next/navigation";
 import { PatientForm } from "@/components/features/patients/patient-form";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
-import { apiRequest } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolvePatientPhotoUrl } from "@/lib/patient-photo";
 import { buildPatientUpdateBody } from "@/lib/patients";
+import { mapPatientValidationErrorToFields } from "@/lib/patient-validation";
 import type { PatientFormValues } from "@/schemas/patient";
-import type { Patient, PatientUpdateInput } from "@/types/patient";
+import { patientReligionLabel, type Patient, type PatientUpdateInput } from "@/types/patient";
 import type { OPDVisitListResponse } from "@/types/opd";
 
 const VISITS_PER_PAGE = 20;
@@ -68,6 +71,7 @@ export default function PatientDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [serverFieldErrors, setServerFieldErrors] = useState<Partial<Record<keyof PatientFormValues, string>>>({});
   const [visitsPage, setVisitsPage] = useState(1);
   const patientId = params?.id ?? "";
   const { data: patient, isLoading, error, refetch } = useQuery({
@@ -100,11 +104,15 @@ export default function PatientDetailPage() {
   const handleSave = async (values: PatientFormValues, photo: File | null) => {
     setSaveNotice(null);
     setSaveError(null);
+    setServerFieldErrors({});
 
     const update: PatientUpdateInput = {
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
       otherName: values.otherName?.trim() || null,
+      email: values.email?.trim() || null,
+      postalAddress: values.postalAddress || null,
+      occupation: values.occupation || null,
       dateOfBirth: values.dateOfBirth || null,
       age: values.age === undefined || values.age === "" ? null : Number(values.age),
       phone: values.phone?.trim() || null,
@@ -118,12 +126,18 @@ export default function PatientDetailPage() {
       maritalStatus: values.maritalStatus === "" || values.maritalStatus === undefined
         ? undefined
         : values.maritalStatus,
+      religion: values.religion === "" || values.religion === undefined
+        ? undefined
+        : values.religion,
     };
 
     const clearsExistingValue = (next: string | number | null | undefined, current: string | number | null | undefined) =>
       next === null && current !== null && current !== undefined && String(current).trim() !== "";
     if (photo && (
       clearsExistingValue(update.otherName, patient?.otherName)
+      || clearsExistingValue(update.email, patient?.email)
+      || clearsExistingValue(update.postalAddress, patient?.postalAddress)
+      || clearsExistingValue(update.occupation, patient?.occupation)
       || clearsExistingValue(update.dateOfBirth, patient?.dateOfBirth?.slice(0, 10))
       || clearsExistingValue(update.age, patient?.age)
       || clearsExistingValue(update.phone, patient?.phone)
@@ -149,6 +163,9 @@ export default function PatientDetailPage() {
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to update patient details.";
+      if (err instanceof ApiError && err.status === 400) {
+        setServerFieldErrors(mapPatientValidationErrorToFields(message));
+      }
       setSaveError(message);
       return false;
     }
@@ -178,7 +195,7 @@ export default function PatientDetailPage() {
         {patient ? (
           <div className="flex flex-wrap gap-2">
             {!isEditing ? (
-              <Button type="button" variant="secondary" onClick={() => { setSaveNotice(null); setIsEditing(true); }}>
+              <Button type="button" variant="secondary" onClick={() => { setSaveNotice(null); setServerFieldErrors({}); setIsEditing(true); }}>
                 <Pencil className="mr-2 h-4 w-4" />Edit patient
               </Button>
             ) : null}
@@ -223,6 +240,9 @@ export default function PatientDetailPage() {
               firstName: patient.firstName,
               otherName: patient.otherName ?? "",
               lastName: patient.lastName,
+              email: patient.email ?? "",
+              postalAddress: patient.postalAddress ?? "",
+              occupation: patient.occupation ?? "",
               dateOfBirth: patient.dateOfBirth?.slice(0, 10) ?? "",
               age: patient.age ?? "",
               phone: patient.phone ?? "",
@@ -234,14 +254,22 @@ export default function PatientDetailPage() {
               area: patient.area ?? "",
               gender: patient.gender ?? "",
               maritalStatus: patient.maritalStatus ?? "",
+              religion: patient.religion ?? "",
             }}
             existingPhotoUrl={patient.imageUrl}
             enablePhoto
+            serverFieldErrors={serverFieldErrors}
+            onFieldChange={(field) => setServerFieldErrors((current) => {
+              if (!(field in current)) return current;
+              const next = { ...current };
+              delete next[field];
+              return next;
+            })}
             onSubmit={handleSave}
             submitLabel="Save changes"
           />
           <div className="flex justify-end">
-            <Button type="button" variant="secondary" onClick={() => { setIsEditing(false); setSaveError(null); }}>
+            <Button type="button" variant="secondary" onClick={() => { setIsEditing(false); setSaveError(null); setServerFieldErrors({}); }}>
               Cancel editing
             </Button>
           </div>
@@ -284,6 +312,7 @@ export default function PatientDetailPage() {
                   <div><PatientDetailLabel icon={Cake}>Age</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.age)}</dd></div>
                   <div><PatientDetailLabel icon={UserRound}>Gender</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.gender)}</dd></div>
                   <div><PatientDetailLabel icon={UsersRound}>Marital status</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.maritalStatus)}</dd></div>
+                  <div><PatientDetailLabel icon={UserRound}>Religion</PatientDetailLabel><dd className={valueClassName}>{patientReligionLabel(patient.religion) || "Not provided"}</dd></div>
                   <div><PatientDetailLabel icon={CreditCard}>Ghana Card number</PatientDetailLabel><dd className={valueClassName}>{patient.ghCardNumber?.trim() || "N/A"}</dd></div>
                   <div><PatientDetailLabel icon={ShieldCheck}>NHIS number</PatientDetailLabel><dd className={valueClassName}>{patient.nhisNumber?.trim() || "N/A"}</dd></div>
                 </dl>
@@ -293,6 +322,9 @@ export default function PatientDetailPage() {
                 <h4 id="patient-contact-location" className="font-semibold text-foreground">Contact &amp; location</h4>
                 <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
                   <div><PatientDetailLabel icon={Phone}>Phone</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.phone)}</dd></div>
+                  {patient.email?.trim() ? <div><PatientDetailLabel icon={Mail}>Email</PatientDetailLabel><dd className={`${valueClassName} break-words`}>{patient.email}</dd></div> : null}
+                  {patient.postalAddress?.trim() ? <div><PatientDetailLabel icon={MapPin}>Postal address</PatientDetailLabel><dd className={`${valueClassName} break-words`}>{patient.postalAddress}</dd></div> : null}
+                  {patient.occupation?.trim() ? <div><PatientDetailLabel icon={BriefcaseBusiness}>Occupation</PatientDetailLabel><dd className={valueClassName}>{patient.occupation}</dd></div> : null}
                   <div><PatientDetailLabel icon={MapPin}>Region</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.region)}</dd></div>
                   <div><PatientDetailLabel icon={Building2}>District</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.district)}</dd></div>
                   <div><PatientDetailLabel icon={MapPin}>Town</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.town)}</dd></div>

@@ -41,18 +41,19 @@ describe("PatientSearchList filters", () => {
 
     fireEvent.change(screen.getByLabelText("Gender"), { target: { value: "female" } });
     fireEvent.change(screen.getByLabelText("Marital status"), { target: { value: "married" } });
+    fireEvent.change(screen.getByLabelText("Religion"), { target: { value: "traditional" } });
     fireEvent.change(screen.getByLabelText("region"), { target: { value: " Greater Accra " } });
     fireEvent.change(screen.getByLabelText("Patient ID (OPD No.)"), { target: { value: "PT-12/2026" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
 
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(
-        "/patients?gender=female&maritalStatus=married&region=Greater+Accra&patientId=PT-12%2F2026",
+        "/patients?gender=female&maritalStatus=married&religion=traditional&region=Greater+Accra&patientId=PT-12%2F2026",
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
     expect(screen.queryByRole("form", { name: "Filter patients" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Filters (4)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters (5)" })).toBeInTheDocument();
   });
 
   it("clears active filters and reloads the unfiltered list", async () => {
@@ -98,5 +99,23 @@ describe("PatientSearchList filters", () => {
 
     expect(await screen.findByText("Ama Yaa Mensah")).toBeInTheDocument();
     expect(await screen.findByText("OPD No. 12/2026 • Odoben • Awendadze")).toBeInTheDocument();
+  });
+
+  it("shows optional email, postal address, occupation, and religion when available", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      patients: [{
+        id: "patient-1",
+        firstName: "Ama",
+        lastName: "Mensah",
+        email: "ama@example.com",
+        postalAddress: "P.O. Box 12",
+        occupation: "Teacher",
+        religion: "christianity",
+      }],
+    });
+
+    renderPatientSearch();
+
+    expect(await screen.findByText("ama@example.com • P.O. Box 12 • Teacher • Christianity")).toBeInTheDocument();
   });
 });

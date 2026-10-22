@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api";
 import UsersPage from "./page";
@@ -37,7 +37,7 @@ beforeEach(() => {
 describe("clinic staff form", () => {
   it("marks required creation fields and leaves email optional", async () => {
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     expect(screen.getByLabelText(/First name/)).toBeRequired();
     expect(screen.getByLabelText(/Last name/)).toBeRequired();
@@ -59,7 +59,7 @@ describe("clinic staff form", () => {
 
   it("marks password requirements green as they are met", async () => {
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), { target: { value: "Clinic123!" } });
 
@@ -76,7 +76,7 @@ describe("clinic staff form", () => {
     ["a password longer than 72 characters", `${"a".repeat(71)}A1!`],
   ])("does not show the ready message for %s", async (_description, password) => {
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     fireEvent.change(screen.getByLabelText(/Password/, { selector: "input" }), { target: { value: password } });
 
@@ -85,7 +85,7 @@ describe("clinic staff form", () => {
 
   it("shows the shared phone-format message and prevents an invalid user request", async () => {
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
     fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
@@ -107,7 +107,7 @@ describe("clinic staff form", () => {
       })
       .mockRejectedValueOnce(new Error("password must not contain a commonly used phrase"));
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
     fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
@@ -121,7 +121,7 @@ describe("clinic staff form", () => {
 
   it("shows a specific frontend error for spaces without calling the API", async () => {
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
     fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
@@ -141,7 +141,7 @@ describe("clinic staff form", () => {
 
   it("shows a specific frontend error for passwords over 72 characters", async () => {
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     fireEvent.change(screen.getByLabelText(/First name/), { target: { value: "Clinic" } });
     fireEvent.change(screen.getByLabelText(/Last name/), { target: { value: "Staff" } });
@@ -158,7 +158,7 @@ describe("clinic staff form", () => {
 
   it("lets staff reveal and hide a password while typing", async () => {
     renderUsersPage();
-    await screen.findByText("No users match the current filters.");
+    await screen.findByText("No users match your search or filters.");
 
     const password = screen.getByLabelText(/Password/, { selector: "input" });
     expect(password).toHaveAttribute("type", "password");
@@ -217,6 +217,49 @@ describe("clinic staff form", () => {
     await vi.waitFor(() => {
       const patchCalls = vi.mocked(apiRequest).mock.calls.filter(([, init]) => init?.method === "PATCH");
       expect(JSON.parse(String(patchCalls.at(-1)?.[1]?.body))).toHaveProperty("password", "Resetpass1!");
+    });
+  });
+
+  it("debounces search, clears it, and resets pagination when filters change", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      users: [{
+        id: "receptionist-1",
+        firstName: "Ama",
+        lastName: "Mensah",
+        role: "receptionist",
+        phone: "0241234567",
+        isActive: true,
+      }],
+      pagination: { page: 1, limit: 20, total: 21, totalPages: 2 },
+    });
+    renderUsersPage();
+    expect(await screen.findByText("Ama Mensah")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/users?page=2&limit=20", expect.anything());
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter users by role"), { target: { value: "receptionist" } });
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/users?role=receptionist&page=1&limit=20", expect.anything());
+    });
+    fireEvent.change(screen.getByLabelText("Filter users by status"), { target: { value: "false" } });
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/users?role=receptionist&isActive=false&page=1&limit=20", expect.anything());
+    });
+
+    const beforeSearch = vi.mocked(apiRequest).mock.calls.length;
+    const search = screen.getByLabelText("Search users by first name, last name, or phone");
+    fireEvent.change(search, { target: { value: "Ama Men" } });
+    expect(vi.mocked(apiRequest).mock.calls).toHaveLength(beforeSearch);
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/users?search=Ama+Men&role=receptionist&isActive=false&page=1&limit=20", expect.anything());
+    }, { timeout: 1500 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear user search" }));
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/users?role=receptionist&isActive=false&page=1&limit=20", expect.anything());
     });
   });
 });

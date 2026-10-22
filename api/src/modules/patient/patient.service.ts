@@ -52,6 +52,9 @@ export class PatientService {
       if (filters.maritalStatus) {
         patientsQuery.andWhere("patient.maritalStatus = :maritalStatus", { maritalStatus: filters.maritalStatus as MaritalStatus });
       }
+      if (filters.religion) {
+        patientsQuery.andWhere("patient.religion = :religion", { religion: filters.religion });
+      }
       // Exact-ish administrative-area filters, mainly used by reporting
       // ("patients from this region/district/town/area") — kept
       // case-insensitive since these are free-typed at registration time
@@ -93,6 +96,8 @@ export class PatientService {
               .orWhere(`patient.district ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.town ILIKE :${parameter}`, { [parameter]: pattern })
               .orWhere(`patient.area ILIKE :${parameter}`, { [parameter]: pattern })
+              .orWhere(`patient.postalAddress ILIKE :${parameter}`, { [parameter]: pattern })
+              .orWhere(`patient.occupation ILIKE :${parameter}`, { [parameter]: pattern })
               // dateOfBirth/age are date/int columns — ILIKE on them
               // directly throws in Postgres ("operator does not exist").
               // Cast to text first so free-text search still works.
@@ -242,14 +247,18 @@ export class PatientService {
           lastName: data.lastName.trim(),
           otherName: data.otherName?.trim(),
           phone: data.phone,
+          email: data.email,
           dateOfBirth: data.dateOfBirth,
           age: data.age,
           region: data.region,
           district: data.district,
           town: data.town,
           area: data.area,
+          postalAddress: data.postalAddress?.trim(),
           gender: data.gender,
           maritalStatus: data.maritalStatus,
+          religion: data.religion,
+          occupation: data.occupation?.trim(),
           ghCardNumber: data.ghCardNumber,
           nhisNumber: data.nhisNumber,
           imageUrl,

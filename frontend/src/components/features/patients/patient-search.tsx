@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { cn } from "@/lib/utils";
-import type { PatientListResponse } from "@/types/patient";
+import { patientReligionLabel, PATIENT_RELIGIONS, type PatientListResponse } from "@/types/patient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 type PatientFilters = {
   gender: string;
   maritalStatus: string;
+  religion: string;
   region: string;
   district: string;
   town: string;
@@ -27,6 +28,7 @@ type PatientFilters = {
 const emptyFilters: PatientFilters = {
   gender: "",
   maritalStatus: "",
+  religion: "",
   region: "",
   district: "",
   town: "",
@@ -76,6 +78,7 @@ export function PatientSearchList({ className }: { className?: string }) {
     setAppliedFilters({
       gender: draftFilters.gender,
       maritalStatus: draftFilters.maritalStatus,
+      religion: draftFilters.religion,
       region: draftFilters.region.trim(),
       district: draftFilters.district.trim(),
       town: draftFilters.town.trim(),
@@ -99,8 +102,8 @@ export function PatientSearchList({ className }: { className?: string }) {
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             className="pl-9"
-            aria-label="Search patients by name including other name, patient ID, phone, Ghana Card, NHIS number or area"
-            placeholder="Search by name, other name, patient ID, phone, Ghana Card, NHIS or area"
+            aria-label="Search patients by name, patient ID, phone, Ghana Card, NHIS, location, age, date of birth, postal address or occupation"
+            placeholder="Search names, ID, phone, Ghana Card, NHIS, location, age, DOB, postal address or occupation"
           />
         </div>
         <Button
@@ -150,6 +153,18 @@ export function PatientSearchList({ className }: { className?: string }) {
                 <option value="married">Married</option>
                 <option value="divorced">Divorced</option>
                 <option value="widowed">Widowed</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="patient-filter-religion" className="text-sm font-medium text-foreground">Religion</label>
+              <select
+                id="patient-filter-religion"
+                value={draftFilters.religion}
+                onChange={(event) => setDraftFilters((filters) => ({ ...filters, religion: event.target.value }))}
+                className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Any religion</option>
+                {PATIENT_RELIGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
               </select>
             </div>
 
@@ -219,6 +234,13 @@ export function PatientSearchList({ className }: { className?: string }) {
                 {patient.town ? ` • ${patient.town}` : ""}
                 {patient.area ? ` • ${patient.area}` : ""}
               </p>
+              {[patient.email, patient.postalAddress, patient.occupation, patientReligionLabel(patient.religion)]
+                .some((value) => Boolean(value?.trim())) ? (
+                <p className="mt-1 break-words text-sm text-muted-foreground">
+                  {[patient.email, patient.postalAddress, patient.occupation, patientReligionLabel(patient.religion)]
+                    .filter((value) => Boolean(value?.trim())).join(" • ")}
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <Button type="button" variant="secondary" size="sm" onClick={() => router.push(`/patients/${patient.id}`)}>

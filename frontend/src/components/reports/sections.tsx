@@ -169,7 +169,9 @@ export function PeopleSection({ m }: { m: ReportModel }) {
             active={m.marital.find((row) => row.status === slice.maritalStatus)?.name ?? ""}
             onPick={(name) => {
               const status = m.marital.find((row) => row.name === name)?.status;
-              if (status) actions.setSlice({ ...slice, maritalStatus: slice.maritalStatus === status ? "" : status });
+              if (status && status !== "unknown") {
+                actions.setSlice({ ...slice, maritalStatus: slice.maritalStatus === status ? "" : status });
+              }
             }}
           />
         )}

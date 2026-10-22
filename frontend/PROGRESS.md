@@ -297,6 +297,20 @@
 - Aligned client validation with `user.validator.ts`: 8–72 characters, no whitespace, lowercase and uppercase letters, a number, and one backend-approved special character.
 - Applied a plain, live checklist to staff creation, admin password resets, and password changes. The change-password UI additionally requires lowercase and uppercase letters at the user's request; the current auth backend validator enforces at least 8 characters, one number, and one allowed special character.
 - Removed the checklist heading, instructional copy, whitespace/maximum-length labels, background, and border at the user's request. Staff creation/reset and password change now check whitespace and the 72-character maximum before making the API request, with specific inline messages; other unlisted password rules remain backend-enforced.
+
+## Patient fields, reports, and users filters follow-up
+- Added `otherName`, email, postal address, occupation, and required religion to patient creation/edit payloads and views. Patient names continue to use the shared full-name formatter; religion uses the backend enum labels.
+- Added religion to patient search filters and marital-status/religion filters to both reports. Report filters are sent to the backend and reset pagination; patient registration report columns and exports include the new fields.
+- Added debounced user search, role and active-status filters, clear-search behavior, and page resets when filters change.
+- Made the approved minimal backend change to forward marital-status and religion parameters from the OPD report route to its service.
+- Validation: 33 focused patient/report tests pass; frontend TypeScript, production build, targeted ESLint for changed files, and `git diff --check -- frontend` pass. The full frontend suite had 6 failures before the related test fixtures/assertions were updated; the three task-related failures now pass in focused runs. Full-suite failures also included unrelated dashboard, OPD visit search-label, and patient-identifier tests. Full-project ESLint remains blocked by existing setState-in-effect errors in the dashboard and OPD visit list.
+
+## Report cache staleness follow-up
+- Revalidate saved historical patient and OPD report ranges against the API on each report load instead of treating IndexedDB coverage as authoritative. A successful empty server response replaces the old cached range and is rendered empty even if updating IndexedDB fails.
+- Keep saved summaries as an offline fallback only when the API request fails due to network or transient server errors, and show a warning that fallback data may be out of date. Explicit refresh does not fall back to saved summaries.
+- Updated the report cache helper text to describe offline fallback rather than implying cached summaries are authoritative or used for faster online loading.
+- Added regression tests for stale patient and OPD cache rows alongside an empty server response, plus the clearly warned offline fallback.
+- Validation: report loader tests (6) pass; frontend TypeScript and targeted ESLint pass.
 - Backend password validation messages from user creation/reset and password change are surfaced inline beside the relevant password field, including for validation rules not represented by the client checklist.
 - Validation: focused password and user-form tests, TypeScript, targeted ESLint, production build, and `git diff --check` pass.
 

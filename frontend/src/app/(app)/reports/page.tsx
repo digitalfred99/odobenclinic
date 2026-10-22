@@ -28,6 +28,7 @@ import {
 } from "@/lib/reports/period";
 import { EMPTY_SLICE, type LoadProgress, type PatientRecord, type RecordKind, type Slice, type VisitRecord } from "@/lib/reports/types";
 import type { ReportRow } from "@/types/report";
+import { PATIENT_RELIGION_VALUES } from "@/types/patient";
 import { FilterSheet } from "@/components/reports/filter-sheet";
 import { RecordsTable } from "@/components/reports/records-table";
 import { BusySection, OverviewSection, PeopleSection, ReturningSection, type ReportModel } from "@/components/reports/sections";
@@ -68,7 +69,8 @@ function readUrl(params: URLSearchParams) {
   const slice: Slice = {
     ...EMPTY_SLICE,
     sex: pick(params.get("sex"), ["", "male", "female", "other"] as const, ""),
-    maritalStatus: pick(params.get("marital"), ["", "single", "married", "divorced", "widowed", "unknown"] as const, ""),
+    maritalStatus: pick(params.get("marital"), ["", "single", "married", "divorced", "widowed"] as const, ""),
+    religion: pick(params.get("religion"), ["", ...PATIENT_RELIGION_VALUES] as const, ""),
     ageBand: params.get("age") ?? "",
     type: pick(params.get("type"), ["", "new", "returning", "unknown"] as const, ""),
     area: params.get("area") ?? "", town: params.get("town") ?? "", district: params.get("district") ?? "", region: params.get("region") ?? "",
@@ -172,33 +174,34 @@ function ReportsPageContent() {
     : null;
   const prev = useMemo(() => (compare === "none" ? null : previousPeriod(period, compare)), [period, compare]);
   const prevLabel = compare === "lastYear" ? "the same period last year" : "the previous period";
+  const reportFilters = { maritalStatus: slice.maritalStatus, religion: slice.religion };
 
   /* ----- data ----- */
   const queryOpts = { staleTime: 5 * 60_000, refetchOnWindowFocus: false } as const;
   const refreshNow = () => refreshNonce.current === nonce;
 
   const visitsQ = useQuery({
-    ...queryOpts, queryKey: ["rpt-visits", period.from, period.to, nonce],
+    ...queryOpts, queryKey: ["rpt-visits", period.from, period.to, reportFilters.maritalStatus, reportFilters.religion, nonce],
     enabled: !periodError,
-    queryFn: ({ signal }) => loadVisits(period, today, signal, setProgress, refreshNow()),
+    queryFn: ({ signal }) => loadVisits(period, today, signal, setProgress, refreshNow(), reportFilters),
   });
   const patientsQ = useQuery({
-    ...queryOpts, queryKey: ["rpt-patients", period.from, period.to, nonce],
+    ...queryOpts, queryKey: ["rpt-patients", period.from, period.to, reportFilters.maritalStatus, reportFilters.religion, nonce],
     enabled: !periodError,
-    queryFn: ({ signal }) => loadPatients(period, today, signal, setProgress, refreshNow()),
+    queryFn: ({ signal }) => loadPatients(period, today, signal, setProgress, refreshNow(), reportFilters),
   });
   const compareReady = Boolean(prev) && visitsQ.isSuccess && patientsQ.isSuccess;
   const prevVisitsQ = useQuery({
-    ...queryOpts, queryKey: ["rpt-visits", prev?.from, prev?.to, nonce], enabled: compareReady,
-    queryFn: ({ signal }) => loadVisits(prev!, today, signal, setProgress, refreshNow()),
+    ...queryOpts, queryKey: ["rpt-visits", prev?.from, prev?.to, reportFilters.maritalStatus, reportFilters.religion, nonce], enabled: compareReady,
+    queryFn: ({ signal }) => loadVisits(prev!, today, signal, setProgress, refreshNow(), reportFilters),
   });
   const prevPatientsQ = useQuery({
-    ...queryOpts, queryKey: ["rpt-patients", prev?.from, prev?.to, nonce], enabled: compareReady,
-    queryFn: ({ signal }) => loadPatients(prev!, today, signal, setProgress, refreshNow()),
+    ...queryOpts, queryKey: ["rpt-patients", prev?.from, prev?.to, reportFilters.maritalStatus, reportFilters.religion, nonce], enabled: compareReady,
+    queryFn: ({ signal }) => loadPatients(prev!, today, signal, setProgress, refreshNow(), reportFilters),
   });
   const historyQ = useQuery({
-    ...queryOpts, queryKey: ["rpt-visits", "history", nonce], enabled: historyOn && visitsQ.isSuccess,
-    queryFn: ({ signal }) => loadVisits({ preset: "all", from: "", to: "" }, today, signal, setProgress, refreshNow()),
+    ...queryOpts, queryKey: ["rpt-visits", "history", reportFilters.maritalStatus, reportFilters.religion, nonce], enabled: historyOn && visitsQ.isSuccess,
+    queryFn: ({ signal }) => loadVisits({ preset: "all", from: "", to: "" }, today, signal, setProgress, refreshNow(), reportFilters),
   });
 
   const anyFetching = [visitsQ, patientsQ, prevVisitsQ, prevPatientsQ, historyQ].some((q) => q.isFetching);
@@ -238,7 +241,7 @@ function ReportsPageContent() {
 
     const pyramid = buildPyramid(slicedVisits);
     const areas = rankBy(slicedVisits, (v) => v.area, 10);
-    const maritalRows = patients.filter((p) => matchesPatient(p, { ...sliceNoMissing, maritalStatus: "" }, dup.pids));
+    const maritalRows = patients.filter((p) => matchesPatient(p, sliceNoMissing, dup.pids));
     const marital = buildMaritalBreakdown(maritalRows);
     const heat = buildHeatmap(slicedVisits);
     const historyRows = (historyQ.data?.rows ?? NO_VISITS).filter((v) => matchesVisit(v, { ...slice, type: "", weekday: null }));
@@ -290,7 +293,7 @@ function ReportsPageContent() {
     const p = new URLSearchParams();
     p.set("period", preset); p.set("tab", tab); p.set("compare", compare); p.set("kind", recordsKind);
     if (preset === "custom") { if (custom.from) p.set("from", custom.from); if (custom.to) p.set("to", custom.to); }
-    const entries: [string, string][] = [["sex", slice.sex], ["marital", slice.maritalStatus], ["age", slice.ageBand], ["type", slice.type], ["area", slice.area], ["town", slice.town], ["district", slice.district], ["region", slice.region], ["wd", slice.weekday === null ? "" : String(slice.weekday)], ["missing", slice.missing]];
+    const entries: [string, string][] = [["sex", slice.sex], ["marital", slice.maritalStatus], ["religion", slice.religion], ["age", slice.ageBand], ["type", slice.type], ["area", slice.area], ["town", slice.town], ["district", slice.district], ["region", slice.region], ["wd", slice.weekday === null ? "" : String(slice.weekday)], ["missing", slice.missing]];
     entries.forEach(([k, v]) => { if (v) p.set(k, v); });
     router.replace(`${pathname}?${p}`, { scroll: false });
   }, [preset, custom, compare, tab, recordsKind, slice, pathname, router]);
@@ -319,7 +322,13 @@ function ReportsPageContent() {
     setSaveViewOpen(false);
   };
   const applyView = (v: SavedView) => {
-    setPreset(v.preset); setCustom({ from: v.from, to: v.to }); setCompare(v.compare); setSlice({ ...EMPTY_SLICE, ...v.slice });
+    const restoredSlice = { ...EMPTY_SLICE, ...v.slice };
+    setPreset(v.preset); setCustom({ from: v.from, to: v.to }); setCompare(v.compare);
+    setSlice({
+      ...restoredSlice,
+      maritalStatus: pick(restoredSlice.maritalStatus, ["", "single", "married", "divorced", "widowed"] as const, ""),
+      religion: pick(restoredSlice.religion, ["", ...PATIENT_RELIGION_VALUES] as const, ""),
+    });
     setTab(v.tab ?? "records"); setRecordsKind(v.kind ?? "patients");
   };
   const deleteView = (id: string) => { const next = views.filter((v) => v.id !== id); setViews(next); writeStore("clinic-report-views", next); };
@@ -366,7 +375,7 @@ function ReportsPageContent() {
     setExportJob({ label: "Preparing export", done: 0, total: 0 });
     try {
       const kind = recordsKind;
-      let rows = await fetchFullRows(kind, period, today, controller.signal, (done, total) => setExportJob({ label: "Loading records", done, total }));
+      let rows = await fetchFullRows(kind, period, today, controller.signal, (done, total) => setExportJob({ label: "Loading records", done, total }), reportFilters);
       rows = rows.filter((row) => {
         if (kind === "visits") { const rec = normalizeVisit(row, null); return rec ? matchesVisit(rec, slice) : false; }
         const rec = normalizePatient(row);
@@ -571,7 +580,7 @@ function ReportsPageContent() {
                   </div>
                 </div>
                 <RecordsTable
-                  key={recordsKind}
+                  key={`${recordsKind}:${period.from}:${period.to}:${JSON.stringify(slice)}`}
                   kind={recordsKind}
                   records={records}
                   missingKey={slice.missing}
@@ -582,7 +591,7 @@ function ReportsPageContent() {
         </div>
 
         <p className="flex flex-wrap items-center gap-x-4 text-xs text-muted-foreground">
-          <span>Days older than two days are saved on this computer for faster loading{visitsQ.data?.usedCache ? " (used for this report)" : ""}. Saved data holds no names, phone numbers or card numbers.</span>
+          <span>Days older than two days are saved on this computer for offline fallback{visitsQ.data?.usedCache || patientsQ.data?.usedCache ? " (used for this report; it may be out of date)" : ""}. When the server is available, reports are loaded from it. Saved data holds no names, phone numbers or card numbers.</span>
           <button type="button" className="inline-flex min-h-11 items-center font-medium text-primary underline-offset-4 hover:underline"
             onClick={() => { void clearReportCache(); clearDetailsCache(); setExportStatus("Saved report data cleared. The next report loads from the server."); }}>
             Clear saved report data

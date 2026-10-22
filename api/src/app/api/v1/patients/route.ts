@@ -17,6 +17,7 @@ const getHandler: AuthedHandler = async (req, _ctx) => {
             search: params.get("search") ?? undefined,
             gender: (params.get("gender") as FilterPatientDTO["gender"]) ?? undefined,
             maritalStatus: (params.get("maritalStatus") as FilterPatientDTO["maritalStatus"]) ?? undefined,
+            religion: (params.get("religion") as FilterPatientDTO["religion"]) ?? undefined,
             region: params.get("region") ?? undefined,
             district: params.get("district") ?? undefined,
             town: params.get("town") ?? undefined,

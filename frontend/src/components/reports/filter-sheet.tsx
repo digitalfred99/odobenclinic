@@ -4,6 +4,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { Button } from "@/components/ui/button";
 import { AGE_BANDS, MISSING_LABELS, WEEKDAYS } from "@/lib/reports/analytics";
 import { EMPTY_SLICE, type MissingKey, type Slice } from "@/lib/reports/types";
+import { PATIENT_RELIGIONS } from "@/types/patient";
 
 export type Vocab = { areas: string[]; towns: string[]; districts: string[]; regions: string[] };
 
@@ -47,7 +48,12 @@ export function FilterSheet({ open, onOpenChange, slice, onChange, vocab }: {
                 <option value="married">Married</option>
                 <option value="divorced">Divorced</option>
                 <option value="widowed">Widowed</option>
-                <option value="unknown">Not recorded</option>
+              </select>
+            </Field>
+            <Field id="f-religion" label="Religion">
+              <select id="f-religion" className={selectClass} value={slice.religion} onChange={(e) => set("religion", e.target.value as Slice["religion"])}>
+                <option value="">All religions</option>
+                {PATIENT_RELIGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
             <Field id="f-age" label="Age group">

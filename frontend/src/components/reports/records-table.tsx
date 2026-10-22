@@ -13,6 +13,8 @@ import type { MissingKey, PatientRecord, RecordKind, VisitRecord } from "@/lib/r
 import type { OPDVisit } from "@/types/opd";
 import type { PatientListResponse } from "@/types/patient";
 import type { ReportRow } from "@/types/report";
+import { patientReligionLabel } from "@/types/patient";
+import { formatPatientName } from "@/lib/patient-name";
 
 type Rec = VisitRecord | PatientRecord;
 type SortKey = "date" | "pid" | "age" | "sex" | "area";
@@ -149,8 +151,15 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
     if (key === sortKey) setDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setDir(key === "date" ? "desc" : "asc"); }
   };
-  const nameOf = (d: ReportRow | null) => d?.name ?? (isFetching ? "…" : "—");
+  const nameOf = (d: ReportRow | null) => d ? formatPatientName(d) || d.name : isFetching ? "…" : "—";
   const dateLabel = (r: Rec) => formatReportDate(r.date);
+  const patientDetailFields = (detail: ReportRow | null): [string, string][] => [
+    ["Other name", detail?.otherName?.trim() ?? ""],
+    ["Email", detail?.email?.trim() ?? ""],
+    ["Postal address", detail?.postalAddress?.trim() ?? ""],
+    ["Religion", patientReligionLabel(detail?.religion)],
+    ["Occupation", detail?.occupation?.trim() ?? ""],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
   const maritalStatusLabel = (detail: ReportRow | null) => {
     if (!detail) return "—";
     const status = detail.maritalStatus?.trim();
@@ -215,6 +224,15 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                 <tr>
                   <SortableHeader id="pid" label="OPD No." sortKey={sortKey} dir={dir} onSort={sortBy} />
                   <th className="px-3 py-1 font-semibold">Name</th>
+                  {kind === "patients" ? (
+                    <>
+                      <th className="px-3 py-1 font-semibold">Other name</th>
+                      <th className="px-3 py-1 font-semibold">Email</th>
+                      <th className="px-3 py-1 font-semibold">Postal address</th>
+                      <th className="px-3 py-1 font-semibold">Religion</th>
+                      <th className="px-3 py-1 font-semibold">Occupation</th>
+                    </>
+                  ) : null}
                   <SortableHeader id="age" label="Age" sortKey={sortKey} dir={dir} onSort={sortBy} />
                   <SortableHeader id="sex" label="Sex" sortKey={sortKey} dir={dir} onSort={sortBy} />
                   <th className="px-3 py-1 font-semibold">Marital status</th>
@@ -236,6 +254,15 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                   <tr key={`${r.pid}-${r.date}-${i}`} className="border-b border-border last:border-0">
                     <td className="px-3 py-3 font-mono text-xs">{formatPatientDisplayId(r.pid)}</td>
                     <td className="max-w-64 break-words px-3 py-3">{nameOf(detailRows[i])}</td>
+                    {kind === "patients" ? (
+                      <>
+                        <td className="px-3 py-3">{detailRows[i]?.otherName?.trim() || "—"}</td>
+                        <td className="max-w-56 break-words px-3 py-3">{detailRows[i]?.email?.trim() || "—"}</td>
+                        <td className="max-w-56 break-words px-3 py-3">{detailRows[i]?.postalAddress?.trim() || "—"}</td>
+                        <td className="px-3 py-3">{patientReligionLabel(detailRows[i]?.religion) || "—"}</td>
+                        <td className="px-3 py-3">{detailRows[i]?.occupation?.trim() || "—"}</td>
+                      </>
+                    ) : null}
                     <td className="px-3 py-3 tabular-nums">{r.age ?? "—"}</td>
                     <td className="px-3 py-3 capitalize">{r.sex === "other" ? "—" : r.sex}</td>
                     <td className="px-3 py-3">{maritalStatusLabel(detailRows[i])}</td>
@@ -266,6 +293,11 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {placeLabel(r.area)} · {dateLabel(r)} {timeLabel(r)}{kind === "visits" ? ` · ${typeLabel(r)}` : ""}
                 </p>
+                {kind === "patients" && patientDetailFields(detailRows[i]).length ? (
+                  <p className="mt-1 break-words text-sm text-muted-foreground">
+                    {patientDetailFields(detailRows[i]).map(([label, value]) => `${label}: ${value}`).join(" · ")}
+                  </p>
+                ) : null}
                 {kind === "visits" ? (
                   <p className="mt-1 break-words text-sm text-muted-foreground">
                     {detailRows[i]?.remarks || "No visit remarks"} · Recorded {formatReportDateTime(detailRows[i]?.visitRecordedAt)} · {Math.max(1, visitCounts.get(r.pid) ?? 0)} visits in report period

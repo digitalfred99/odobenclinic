@@ -18,6 +18,8 @@ import {
   prependPatientToList,
 } from "@/lib/patients";
 import { cachePatientLocation } from "@/lib/patient-location-cache";
+import { mapPatientValidationErrorToFields } from "@/lib/patient-validation";
+import { patientReligionLabel } from "@/types/patient";
 import type { PatientFormValues } from "@/schemas/patient";
 import type {
   ManualPatientCreateInput,
@@ -43,8 +45,8 @@ function toPatientCreateInput(
   values: PatientFormValues,
   confirmedDuplicatePatientId: string | null
 ): PatientCreateInput {
-  if (!values.gender || !values.maritalStatus) {
-    throw new Error("Enter the patient’s gender and marital status.");
+  if (!values.gender || !values.maritalStatus || !values.religion) {
+    throw new Error("Enter the patient’s gender, marital status, and religion.");
   }
 
   return {
@@ -52,10 +54,14 @@ function toPatientCreateInput(
     lastName: values.lastName.trim(),
     gender: values.gender,
     maritalStatus: values.maritalStatus,
+    religion: values.religion,
     ...(values.otherName?.trim() ? { otherName: values.otherName.trim() } : {}),
     ...(values.dateOfBirth ? { dateOfBirth: values.dateOfBirth } : {}),
     ...(values.age !== undefined && values.age !== "" ? { age: Number(values.age) } : {}),
     ...(values.phone ? { phone: values.phone } : {}),
+    ...(values.email?.trim() ? { email: values.email.trim() } : {}),
+    ...(values.postalAddress?.trim() ? { postalAddress: values.postalAddress } : {}),
+    ...(values.occupation?.trim() ? { occupation: values.occupation } : {}),
     ...(values.ghCardNumber ? { ghCardNumber: values.ghCardNumber } : {}),
     ...(values.nhisNumber ? { nhisNumber: values.nhisNumber } : {}),
     ...(values.region ? { region: values.region } : {}),
@@ -64,31 +70,6 @@ function toPatientCreateInput(
     ...(values.area ? { area: values.area } : {}),
     ...(confirmedDuplicatePatientId ? { confirmedDuplicatePatientId } : {}),
   };
-}
-
-function mapValidationErrorToField(message: string): Partial<Record<keyof PatientFormValues, string>> {
-  const fieldPatterns: Array<[keyof PatientFormValues, RegExp]> = [
-    ["firstName", /\bfirstName\b|first name/i],
-    ["otherName", /\botherName\b|other name/i],
-    ["lastName", /\blastName\b|last name/i],
-    ["dateOfBirth", /\bdateOfBirth\b|date of birth/i],
-    ["age", /\bage\b/i],
-    ["phone", /\bphone\b/i],
-    ["ghCardNumber", /\bghCardNumber\b|ghana card/i],
-    ["nhisNumber", /\bnhisNumber\b|nhis/i],
-    ["region", /\bregion\b/i],
-    ["district", /\bdistrict\b/i],
-    ["town", /\btown\b/i],
-    ["area", /\barea\b/i],
-    ["gender", /\bgender\b/i],
-    ["maritalStatus", /\bmaritalStatus\b|marital status/i],
-    ["visitDate", /\bvisit date\b|\bopdVisit\.date\b/i],
-    ["visitRemarks", /\bremarks\b/i],
-    ["year", /\byear\b/i],
-    ["positionInYear", /\bpositionInYear\b|number in year/i],
-  ];
-  const match = fieldPatterns.find(([, pattern]) => pattern.test(message));
-  return match ? { [match[0]]: message } : {};
 }
 
 function comparisonValue(value: string | number | null | undefined): string {
@@ -194,13 +175,18 @@ function PatientsPageContent() {
   const comparisonRows = duplicateReview
     ? [
         ["First name", duplicateReview.values.firstName, comparisonPatient?.firstName],
+        ["Other name", duplicateReview.values.otherName, comparisonPatient?.otherName],
         ["Last name", duplicateReview.values.lastName, comparisonPatient?.lastName],
         ["Patient ID", "Will be assigned after saving", comparisonPatient?.patientId],
         ["Date of birth", duplicateReview.values.dateOfBirth, comparisonPatient?.dateOfBirth],
         ["Age", duplicateReview.values.age, comparisonPatient?.age],
         ["Gender", duplicateReview.values.gender, comparisonPatient?.gender],
-        ["Phone", duplicateReview.values.phone, comparisonPatient?.phone],
         ["Marital status", duplicateReview.values.maritalStatus, comparisonPatient?.maritalStatus],
+        ["Religion", patientReligionLabel(duplicateReview.values.religion), patientReligionLabel(comparisonPatient?.religion)],
+        ["Phone", duplicateReview.values.phone, comparisonPatient?.phone],
+        ["Email", duplicateReview.values.email, comparisonPatient?.email],
+        ["Postal address", duplicateReview.values.postalAddress, comparisonPatient?.postalAddress],
+        ["Occupation", duplicateReview.values.occupation, comparisonPatient?.occupation],
         ["Ghana Card", duplicateReview.values.ghCardNumber, comparisonPatient?.ghCardNumber],
         ["NHIS number", duplicateReview.values.nhisNumber, comparisonPatient?.nhisNumber],
         ["Region", duplicateReview.values.region, comparisonPatient?.region],
@@ -311,7 +297,7 @@ function PatientsPageContent() {
         return false;
       }
       if (err instanceof ApiError && err.status === 400) {
-        setServerFieldErrors(mapValidationErrorToField(message));
+        setServerFieldErrors(mapPatientValidationErrorToFields(message));
         setValidationError(message);
         return false;
       }

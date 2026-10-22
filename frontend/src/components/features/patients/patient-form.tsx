@@ -23,6 +23,7 @@ import { calculateAge, toLocalInputDate } from "@/lib/dates";
 import { sanitizePhoneNumber } from "@/lib/phone";
 import { usePatientLocationCache } from "@/lib/patient-location-cache";
 import { preparePatientPhoto, resolvePatientPhotoUrl, validatePatientPhoto } from "@/lib/patient-photo";
+import { PATIENT_RELIGIONS } from "@/types/patient";
 import {
   GHANA_REGIONS,
   getAreaSuggestions,
@@ -48,6 +49,9 @@ const EMPTY_FORM: PatientFormValues = {
   firstName: "",
   otherName: "",
   lastName: "",
+  email: "",
+  postalAddress: "",
+  occupation: "",
   dateOfBirth: "",
   age: "",
   phone: "",
@@ -59,6 +63,7 @@ const EMPTY_FORM: PatientFormValues = {
   area: "",
   gender: "",
   maritalStatus: "",
+  religion: "",
   visitDate: "",
   visitRemarks: "",
   year: "",
@@ -291,10 +296,14 @@ export function PatientForm({
     const succeeded = await onSubmit({
       ...values,
       otherName: values.otherName?.trim() || undefined,
+      email: values.email?.trim() || undefined,
+      postalAddress: values.postalAddress || undefined,
+      occupation: values.occupation || undefined,
       age: values.age === "" ? undefined : Number(values.age),
       dateOfBirth: values.dateOfBirth === "" ? undefined : values.dateOfBirth,
       gender: values.gender === "" ? undefined : values.gender,
       maritalStatus: values.maritalStatus === "" ? undefined : values.maritalStatus,
+      religion: values.religion === "" ? undefined : values.religion,
       phone: values.phone === "" ? undefined : values.phone,
       ghCardNumber: values.ghCardNumber === "" ? undefined : values.ghCardNumber,
       nhisNumber: values.nhisNumber === "" ? undefined : values.nhisNumber,
@@ -375,7 +384,7 @@ export function PatientForm({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <label htmlFor="dateOfBirth" className="text-sm font-medium text-foreground">Date of birth<RequiredMark /></label>
           <Input
@@ -390,7 +399,6 @@ export function PatientForm({
               },
             })}
           />
-          {serverFieldErrors?.phone ? <p className="text-sm text-destructive">{serverFieldErrors.phone}</p> : null}
           {form.formState.errors.dateOfBirth ? <p className="text-sm text-destructive">{form.formState.errors.dateOfBirth.message}</p> : null}
           {serverFieldErrors?.dateOfBirth ? <p className="text-sm text-destructive">{serverFieldErrors.dateOfBirth}</p> : null}
           <p className="text-xs text-muted-foreground">Date of birth or age is required.</p>
@@ -416,14 +424,14 @@ export function PatientForm({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <label htmlFor="gender" className="text-sm font-medium text-foreground">Gender<RequiredMark /></label>
           <select
             id="gender"
             aria-required="true"
-            aria-invalid={Boolean(form.formState.errors.gender)}
-            aria-describedby={form.formState.errors.gender ? "gender-error" : undefined}
+            aria-invalid={Boolean(form.formState.errors.gender || serverFieldErrors?.gender)}
+            aria-describedby={form.formState.errors.gender || serverFieldErrors?.gender ? "gender-error" : undefined}
             {...form.register("gender")}
             className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
@@ -439,8 +447,8 @@ export function PatientForm({
           <select
             id="maritalStatus"
             aria-required="true"
-            aria-invalid={Boolean(form.formState.errors.maritalStatus)}
-            aria-describedby={form.formState.errors.maritalStatus ? "maritalStatus-error" : undefined}
+            aria-invalid={Boolean(form.formState.errors.maritalStatus || serverFieldErrors?.maritalStatus)}
+            aria-describedby={form.formState.errors.maritalStatus || serverFieldErrors?.maritalStatus ? "maritalStatus-error" : undefined}
             {...form.register("maritalStatus")}
             className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
@@ -454,6 +462,22 @@ export function PatientForm({
             <p id="maritalStatus-error" className="text-sm text-destructive">{form.formState.errors.maritalStatus.message}</p>
           ) : null}
           {serverFieldErrors?.maritalStatus ? <p className="text-sm text-destructive">{serverFieldErrors.maritalStatus}</p> : null}
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="religion" className="text-sm font-medium text-foreground">Religion<RequiredMark /></label>
+          <select
+            id="religion"
+            aria-required="true"
+            aria-invalid={Boolean(form.formState.errors.religion || serverFieldErrors?.religion)}
+            aria-describedby={form.formState.errors.religion ? "religion-error" : undefined}
+            {...form.register("religion")}
+            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Select religion</option>
+            {PATIENT_RELIGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          {form.formState.errors.religion ? <p id="religion-error" className="text-sm text-destructive">{form.formState.errors.religion.message}</p> : null}
+          {serverFieldErrors?.religion ? <p className="text-sm text-destructive">{serverFieldErrors.religion}</p> : null}
         </div>
       </div>
 
@@ -518,11 +542,52 @@ export function PatientForm({
             <label htmlFor="phone" className="text-sm font-medium text-foreground">Phone</label>
             <PhoneInput
               id="phone"
-              error={form.formState.errors.phone?.message}
-              aria-invalid={Boolean(form.formState.errors.phone)}
+              aria-invalid={Boolean(form.formState.errors.phone || serverFieldErrors?.phone)}
+              error={form.formState.errors.phone?.message ?? serverFieldErrors?.phone}
               {...form.register("phone")}
             />
           </div>
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm font-medium text-foreground">Email</label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              maxLength={100}
+              aria-invalid={Boolean(form.formState.errors.email || serverFieldErrors?.email)}
+              {...form.register("email")}
+            />
+            {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
+            {serverFieldErrors?.email ? <p className="text-sm text-destructive">{serverFieldErrors.email}</p> : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label htmlFor="postalAddress" className="text-sm font-medium text-foreground">Postal address</label>
+            <Input
+              id="postalAddress"
+              maxLength={100}
+              aria-invalid={Boolean(form.formState.errors.postalAddress || serverFieldErrors?.postalAddress)}
+              {...form.register("postalAddress")}
+            />
+            {form.formState.errors.postalAddress ? <p className="text-sm text-destructive">{form.formState.errors.postalAddress.message}</p> : null}
+            {serverFieldErrors?.postalAddress ? <p className="text-sm text-destructive">{serverFieldErrors.postalAddress}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="occupation" className="text-sm font-medium text-foreground">Occupation</label>
+            <Input
+              id="occupation"
+              maxLength={100}
+              aria-invalid={Boolean(form.formState.errors.occupation || serverFieldErrors?.occupation)}
+              {...form.register("occupation")}
+            />
+            {form.formState.errors.occupation ? <p className="text-sm text-destructive">{form.formState.errors.occupation.message}</p> : null}
+            {serverFieldErrors?.occupation ? <p className="text-sm text-destructive">{serverFieldErrors.occupation}</p> : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
             <label htmlFor="region" className="text-sm font-medium text-foreground">Region</label>
             <select
@@ -540,9 +605,6 @@ export function PatientForm({
               {GHANA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}
             </select>
           </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
             <label htmlFor="district" className="text-sm font-medium text-foreground">District</label>
             <Controller

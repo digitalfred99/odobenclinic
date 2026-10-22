@@ -9,9 +9,9 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 const MAX_REQUEST_BYTES = 6 * 1024 * 1024;
 
 const STRING_FIELDS = [
-  "firstName", "lastName", "otherName", "phone", "dateOfBirth",
-  "region", "district", "town", "area",
-  "gender", "maritalStatus", "ghCardNumber", "nhisNumber",
+  "firstName", "lastName", "otherName", "phone", "email", "dateOfBirth",
+  "region", "district", "town", "area", "postalAddress",
+  "gender", "maritalStatus", "religion", "occupation", "ghCardNumber", "nhisNumber",
   "confirmedDuplicatePatientId",
 ] as const;
 

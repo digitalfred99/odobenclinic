@@ -4,7 +4,7 @@ import { SuccessCodes } from "@/lib/http/successCodes";
 import { handleError } from "@/lib/errors/globalError";
 import { withAuth, AuthedHandler } from "@/middleware/withAuth";
 import { UserRole } from "@/database/entities/User";
-import { Gender } from "@/database/entities/Patient";
+import { Gender, MaritalStatus, Religion } from "@/database/entities/Patient";
 
 const getHandler: AuthedHandler = async (req, _ctx) => {
   try {
@@ -13,6 +13,8 @@ const getHandler: AuthedHandler = async (req, _ctx) => {
       from: params.get("from") ?? undefined,
       to: params.get("to") ?? undefined,
       gender: (params.get("gender") as Gender) ?? undefined,
+      maritalStatus: (params.get("maritalStatus") as MaritalStatus) ?? undefined,
+      religion: (params.get("religion") as Religion) ?? undefined,
       region: params.get("region") ?? undefined,
       district: params.get("district") ?? undefined,
       town: params.get("town") ?? undefined,

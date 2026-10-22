@@ -1,3 +1,5 @@
+import type { PatientReligion } from "@/types/patient";
+
 export type OPDVisitNewReturning = "new" | "returning";
 
 export type OPDVisit = {
@@ -12,6 +14,11 @@ export type OPDVisit = {
     otherName?: string | null;
     lastName: string;
     phone?: string | null;
+    email?: string | null;
+    postalAddress?: string | null;
+    occupation?: string | null;
+    religion?: PatientReligion | null;
+    gender?: "male" | "female" | null;
     ghCardNumber?: string | null;
     nhisNumber?: string | null;
     maritalStatus?: "single" | "married" | "divorced" | "widowed" | null;

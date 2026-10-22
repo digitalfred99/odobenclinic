@@ -1,6 +1,9 @@
+import type { PatientReligion } from "@/types/patient";
+
 export type Sex = "male" | "female" | "other";
 export type VisitType = "new" | "returning" | "unknown";
 export type MaritalStatus = "single" | "married" | "divorced" | "widowed" | "unknown";
+export type MaritalFilter = Exclude<MaritalStatus, "unknown"> | "";
 export type RecordKind = "visits" | "patients";
 export type MissingKey = "phone" | "dob" | "ghCard" | "nhis" | "area" | "duplicate";
 
@@ -37,7 +40,8 @@ export type PatientRecord = Place & {
 
 export type Slice = {
   sex: Sex | "";
-  maritalStatus: MaritalStatus | "";
+  maritalStatus: MaritalFilter;
+  religion: PatientReligion | "";
   ageBand: string;
   type: VisitType | "";
   area: string;
@@ -51,6 +55,7 @@ export type Slice = {
 export const EMPTY_SLICE: Slice = {
   sex: "",
   maritalStatus: "",
+  religion: "",
   ageBand: "",
   type: "",
   area: "",

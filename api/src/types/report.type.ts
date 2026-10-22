@@ -1,4 +1,4 @@
-import { Gender, MaritalStatus } from "@/database/entities/Patient";
+import { Gender, MaritalStatus, Religion } from "@/database/entities/Patient";
 import { NewReturning } from "@/database/entities/OPDVisit";
 
 // Shared date-range + demographic filters both reports accept. The
@@ -10,6 +10,8 @@ export type ReportDateRangeFilter = {
   from?: string; // YYYY-MM-DD, inclusive
   to?: string;   // YYYY-MM-DD, inclusive
   gender?: Gender;
+  maritalStatus?: MaritalStatus;
+  religion?: Religion;
   region?: string;
   district?: string;
   town?: string;
@@ -28,12 +30,16 @@ export type PatientRegistrationReportRow = {
   dateOfBirth: string | null;
   age: number | null;
   phone: string | null;
+  email: string | null;
   region: string | null;
   district: string | null;
+  area: string | null;
+  postalAddress: string | null;
   town: string | null;
   gender: Gender;
   maritalStatus: MaritalStatus;
-  area: string | null;
+  religion: Religion
+  occupation: string | null;
   ghCardNumber: string | null;
   nhisNumber: string | null;
   dateRegistered: string;

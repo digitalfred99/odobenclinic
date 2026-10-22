@@ -25,7 +25,7 @@ describe("PatientForm defaults and guidance", () => {
   it("marks required labels and describes a manually entered age", () => {
     render(<PatientForm onSubmit={vi.fn()} />);
 
-    for (const label of ["First name", "Last name", "Date of birth", "Age", "Gender", "Marital status"]) {
+    for (const label of ["First name", "Last name", "Date of birth", "Age", "Gender", "Marital status", "Religion"]) {
       expect(screen.getByText(label).querySelector("span.text-destructive")).toBeInTheDocument();
     }
 
@@ -38,6 +38,17 @@ describe("PatientForm defaults and guidance", () => {
     render(<PatientForm onSubmit={vi.fn()} />);
 
     expect(screen.getByLabelText("Other name")).toBeInTheDocument();
+  });
+
+  it("provides optional contact fields with backend length limits and email autocomplete", () => {
+    render(<PatientForm onSubmit={vi.fn()} />);
+
+    expect(screen.getByLabelText("Email")).toHaveAttribute("type", "email");
+    expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "email");
+    for (const label of ["Email", "Postal address", "Occupation"]) {
+      expect(screen.getByLabelText(label)).toHaveAttribute("maxlength", "100");
+    }
+    expect(screen.getByLabelText(/^Religion/)).toHaveValue("");
   });
 
   it("reports field edits, including cleared values, so server errors can be cleared", () => {

@@ -14,6 +14,13 @@ export enum MaritalStatus {
   WIDOWED = "widowed",
 }
 
+export enum Religion {
+  CHRISTIANITY = "christianity",
+  ISLAM = "islam",
+  TRADITIONAL = "traditional",
+  OTHER = "other",
+}
+
 @Entity("patients")
 // Patient search and duplicate detection both look patients up by name
 // and by phone constantly, on a table that's expected to grow into the
@@ -74,6 +81,9 @@ export class Patient extends AppBaseEntity {
   @Column({ length: 20, nullable: true })
   phone?: string;
 
+  @Column({ length: 100, nullable: true })
+  email?: string;
+
   @Column({length: 20, nullable: true})
   region?: string;
 
@@ -86,11 +96,20 @@ export class Patient extends AppBaseEntity {
   @Column({ length: 100, nullable: true })
   area?: string;
 
+  @Column({ length: 100, nullable: true })
+  postalAddress?: string;
+
   @Column({ type: "enum", enum: Gender, nullable: false })
   gender!: Gender;
 
   @Column({ type: "enum", enum: MaritalStatus, nullable: false })
   maritalStatus!: MaritalStatus;
+  
+  @Column({ type: "enum", enum: Religion, nullable: false })
+  religion!: Religion;
+
+  @Column({ length: 100, nullable: true })
+  occupation?: string;
 
   // Format: GHA-XXXXXXXXX-X (GHA- literal + 9 digits + - + 1 check
   // digit). Validated against this exact shape and normalized to

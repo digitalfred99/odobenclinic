@@ -65,6 +65,7 @@ vi.mock("@/components/features/patients/patient-form", () => ({
           age: 36,
           gender: "female",
           maritalStatus: "single",
+          religion: "christianity",
           ...(variant === "clinic-record"
             ? { year: 2026, positionInYear: 45 }
             : { visitDate: "2026-10-20" }),
@@ -80,6 +81,7 @@ vi.mock("@/components/features/patients/patient-form", () => ({
           age: 36,
           gender: "female",
           maritalStatus: "single",
+          religion: "christianity",
           ...(variant === "clinic-record"
             ? { year: 2026, positionInYear: 45 }
             : { visitDate: "2026-10-20" }),
@@ -96,6 +98,7 @@ vi.mock("@/components/features/patients/patient-form", () => ({
             age: 36,
             gender: "female",
             maritalStatus: "single",
+            religion: "christianity",
             visitDate: "2026-10-20",
             visitRemarks: "Late entry",
           }, null)}
@@ -278,6 +281,7 @@ describe("PatientsPage registration actions", () => {
           lastName: "Mensah",
           gender: "female",
           maritalStatus: "single",
+          religion: "christianity",
           age: 36,
         },
         opdVisit: { date: "2026-10-20" },
@@ -325,6 +329,7 @@ describe("PatientsPage registration actions", () => {
       age: 36,
       gender: "female",
       maritalStatus: "single",
+      religion: "christianity",
     });
     expect(JSON.parse(String(formData.get("opdVisit")))).toEqual({ date: "2026-10-20" });
     expect(formData.get("image")).toMatchObject({
@@ -373,6 +378,7 @@ describe("PatientsPage registration actions", () => {
             lastName: "Mensah",
             gender: "female",
             maritalStatus: "single",
+            religion: "christianity",
             age: 36,
           },
           opdVisit: { date: "2026-10-20", remarks: "Late entry" },
@@ -408,6 +414,7 @@ describe("PatientsPage registration actions", () => {
           lastName: "Mensah",
           gender: "female",
           maritalStatus: "single",
+          religion: "christianity",
           age: 36,
           year: 2026,
           positionInYear: 45,
@@ -441,6 +448,7 @@ describe("PatientsPage registration actions", () => {
       expect(request?.[1]?.body).toBeInstanceOf(FormData);
       const body = request?.[1]?.body as FormData;
       expect(body.get("firstName")).toBe("Ama");
+      expect(body.get("religion")).toBe("christianity");
       expect(body.get("age")).toBe("36");
       expect(body.get("year")).toBe("2026");
       expect(body.get("positionInYear")).toBe("45");
@@ -559,6 +567,7 @@ describe("PatientsPage registration actions", () => {
           lastName: "Mensah",
           gender: "female",
           maritalStatus: "single",
+          religion: "christianity",
           age: 36,
           confirmedDuplicatePatientId: "PT-12/2026",
         },

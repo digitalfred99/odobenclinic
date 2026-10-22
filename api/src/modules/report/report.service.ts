@@ -54,6 +54,8 @@ export class ReportService {
     if (filters.from) query.andWhere("patient.createdAt >= :from", { from: filters.from });
     if (filters.to) query.andWhere("patient.createdAt < (CAST(:to AS date) + INTERVAL '1 day')", { to: filters.to });
     if (filters.gender) query.andWhere("patient.gender = :gender", { gender: filters.gender });
+    if (filters.maritalStatus) query.andWhere("patient.maritalStatus = :maritalStatus", { maritalStatus: filters.maritalStatus });
+    if (filters.religion) query.andWhere("patient.religion = :religion", { religion: filters.religion });
     if (filters.region) query.andWhere("patient.region ILIKE :region", { region: filters.region });
     if (filters.district) query.andWhere("patient.district ILIKE :district", { district: filters.district });
     if (filters.town) query.andWhere("patient.town ILIKE :town", { town: filters.town });
@@ -81,12 +83,16 @@ export class ReportService {
       dateOfBirth: p.dateOfBirth ?? null,
       age: displayAge(p),
       phone: p.phone ?? null,
+      email: p.email ?? null,
       region: p.region ?? null,
       district: p.district ?? null,
+      area: p.area ?? null,
+      postalAddress: p.postalAddress ?? null,
       town: p.town ?? null,
       gender: p.gender,
       maritalStatus: p.maritalStatus,
-      area: p.area ?? null,
+      religion: p.religion,
+      occupation: p.occupation ?? null,
       ghCardNumber: p.ghCardNumber ?? null,
       nhisNumber: p.nhisNumber ?? null,
       dateRegistered: p.createdAt.toISOString(),
@@ -111,6 +117,8 @@ export class ReportService {
     if (filters.to) query.andWhere("visit.date <= :to", { to: filters.to });
     if (filters.newReturning) query.andWhere("visit.newReturning = :newReturning", { newReturning: filters.newReturning });
     if (filters.gender) query.andWhere("patient.gender = :gender", { gender: filters.gender });
+    if (filters.maritalStatus) query.andWhere("patient.maritalStatus = :maritalStatus", { maritalStatus: filters.maritalStatus });
+    if (filters.religion) query.andWhere("patient.religion = :religion", { religion: filters.religion });
     if (filters.region) query.andWhere("patient.region ILIKE :region", { region: filters.region });
     if (filters.district) query.andWhere("patient.district ILIKE :district", { district: filters.district });
     if (filters.town) query.andWhere("patient.town ILIKE :town", { town: filters.town });

@@ -75,6 +75,10 @@ vi.mock("@/lib/api", () => ({
       dateOfBirth: "1990-10-04",
       age: 36,
       phone: null,
+      email: null,
+      postalAddress: null,
+      occupation: null,
+      religion: null,
       region: "Greater Accra",
       district: "Accra Metro",
       town: "Accra",
@@ -132,6 +136,10 @@ beforeEach(() => {
       dateOfBirth: "1990-10-04",
       age: 36,
       phone: null,
+      email: null,
+      postalAddress: null,
+      occupation: null,
+      religion: null,
       region: "Greater Accra",
       district: "Accra Metro",
       town: "Accra",
@@ -147,7 +155,14 @@ beforeEach(() => {
     const date = path.startsWith("/reports/patients") ? row.dateRegistered : row.date;
     const from = params.get("from");
     const to = params.get("to");
-    const rows = (!from || date >= from) && (!to || date <= to) ? [row] : [];
+    const maritalStatus = params.get("maritalStatus");
+    const religion = params.get("religion");
+    const rows = (!from || date >= from)
+      && (!to || date <= to)
+      && (!maritalStatus || row.maritalStatus === maritalStatus)
+      && (!religion || row.religion === religion)
+      ? [row]
+      : [];
     return {
       rows,
       total: rows.length,
@@ -197,6 +212,7 @@ describe("report export field selection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
     expect(await screen.findByText("No records match the current period and filters.")).toBeInTheDocument();
+    expect(vi.mocked(apiRequest).mock.calls.some(([path]) => path.includes("maritalStatus=single"))).toBe(true);
   });
 
   it("enriches OPD report rows with remarks from the existing visit list API", async () => {
@@ -290,6 +306,10 @@ describe("report export field selection", () => {
       "Full name",
       "Date of birth",
       "Phone",
+      "Email",
+      "Postal address",
+      "Occupation",
+      "Religion",
       "Gender",
       "Marital status",
       "Ghana Card number",
@@ -307,6 +327,10 @@ describe("report export field selection", () => {
       "Mensah",
       "Ama Mensah",
       "4 Oct 1990",
+      "—",
+      "—",
+      "—",
+      "—",
       "—",
       "female",
       "married",

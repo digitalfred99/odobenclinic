@@ -61,6 +61,7 @@ describe("PatientDetailPage", () => {
       nhisNumber: "56738945",
       gender: "female",
       maritalStatus: "married",
+      religion: "christianity",
       region: "Greater Accra",
       district: "Accra Metro",
       town: "Accra",
@@ -113,6 +114,7 @@ describe("PatientDetailPage", () => {
       nhisNumber: "56738945",
       gender: "female",
       maritalStatus: "married",
+      religion: "christianity",
       region: "Greater Accra",
       district: "Accra Metro",
       town: "Accra",
@@ -140,6 +142,9 @@ describe("PatientDetailPage", () => {
       firstName: "Ama",
       lastName: "Mensah",
       otherName: null,
+      email: null,
+      postalAddress: null,
+      occupation: null,
       dateOfBirth: "1990-04-15",
       age: 36,
       phone: "0241111111",
@@ -151,6 +156,7 @@ describe("PatientDetailPage", () => {
       area: "Osu",
       gender: "female",
       maritalStatus: "married",
+      religion: "christianity",
     });
   });
 

@@ -1,7 +1,7 @@
 import { CustomAppError } from "@/lib/errors/customAppError";
 import { ErrorCodes } from "@/lib/errors/errorCodes";
 import { CreatePatientDTO } from "@/types/patient.type";
-import { Gender, MaritalStatus } from "@/database/entities/Patient";
+import { Gender, MaritalStatus, Religion } from "@/database/entities/Patient";
 
 function fail(message: string): never {
   throw new CustomAppError( message, 400, ErrorCodes.VALIDATION_FAILED.code, ErrorCodes.VALIDATION_FAILED.label, "validation_failed" );
@@ -126,6 +126,7 @@ export function validateCreatePatient(data: CreatePatientDTO) {
   if (!data.dateOfBirth && !data.age) fail("Both dateOfBirth and age cannot be empty, at least one must be provided");
   if (!data.gender) fail("gender is required");
   if (!data.maritalStatus) fail("maritalStatus is required");
+  if (!data.religion) fail("religion is required");
 
   validatePatientEnum(data);
   validateAgeAndDob(data);
@@ -139,6 +140,10 @@ export function validatePatientEnum(data: any): asserts data is CreatePatientDTO
   }
   if (data.maritalStatus && !Object.values(MaritalStatus).includes(data.maritalStatus)) {
     fail(`maritalStatus must be one of: ${Object.values(MaritalStatus).join(", ")}`);
+  }
+
+  if (data.religion && !Object.values(Religion).includes(data.religion)) {
+    fail(`religion must be one of: ${Object.values(Religion).join(", ")}`);
   }
 }
 

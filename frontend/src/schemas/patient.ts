@@ -1,11 +1,15 @@
 import { z } from "zod";
 import { getPhoneNumberError } from "@/lib/phone";
 import { getDateOfBirthError, getOpdVisitDateError, toLocalInputDate } from "@/lib/dates";
+import { PATIENT_RELIGION_VALUES } from "@/types/patient";
 
 export type PatientFormValues = {
   firstName: string;
   otherName?: string;
   lastName: string;
+  email?: string;
+  postalAddress?: string;
+  occupation?: string;
   dateOfBirth?: string;
   age?: number | string;
   phone?: string;
@@ -17,6 +21,7 @@ export type PatientFormValues = {
   area?: string;
   gender?: "male" | "female" | "";
   maritalStatus?: "single" | "married" | "divorced" | "widowed" | "";
+  religion?: typeof PATIENT_RELIGION_VALUES[number] | "";
   visitDate?: string;
   visitRemarks?: string;
   year?: number | string;
@@ -27,6 +32,10 @@ const patientFieldsSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required"),
   otherName: z.string().trim().optional().or(z.literal("")),
   lastName: z.string().trim().min(1, "Last name is required"),
+  email: z.string().trim().max(100, "Email must be 100 characters or fewer")
+    .email("Enter a valid email address.").optional().or(z.literal("")),
+  postalAddress: z.string().max(100, "Postal address must be 100 characters or fewer").optional().or(z.literal("")),
+  occupation: z.string().max(100, "Occupation must be 100 characters or fewer").optional().or(z.literal("")),
   dateOfBirth: z.string().optional().or(z.literal("")),
   age: z.union([
     z.number().int().min(0, "Age must be at least 0").max(130, "Age must be 130 or less"),
@@ -56,6 +65,9 @@ const patientFieldsSchema = z.object({
     .refine((gender) => gender !== "" && gender !== undefined, "Gender is required"),
   maritalStatus: z.enum(["single", "married", "divorced", "widowed"], {
     error: "Marital status is required",
+  }),
+  religion: z.enum(PATIENT_RELIGION_VALUES, {
+    error: "Religion is required",
   }),
 });
 

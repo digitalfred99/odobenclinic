@@ -3,6 +3,7 @@ import {
   type BucketSize, type PeriodPreset,
 } from "./period";
 import type { MaritalStatus, MissingKey, PatientRecord, Place, Sex, Slice, VisitRecord } from "./types";
+import { patientReligionLabel } from "@/types/patient";
 
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 export const WEEKDAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -35,7 +36,6 @@ type Demo = Place & { date: string; sex: Sex; age: number | null; maritalStatus?
 
 function matchesDemo(r: Demo, s: Slice) {
   if (s.sex && r.sex !== s.sex) return false;
-  if (s.maritalStatus && (r.maritalStatus ?? "unknown") !== s.maritalStatus) return false;
   if (s.ageBand && ageBandOf(r.age) !== s.ageBand) return false;
   if (s.area && placeLabel(r.area) !== s.area) return false;
   if (s.town && placeLabel(r.town) !== s.town) return false;
@@ -63,7 +63,8 @@ export function matchesPatient(p: PatientRecord, s: Slice, duplicates: Set<strin
 export function describeSlice(s: Slice): { key: keyof Slice; label: string }[] {
   const out: { key: keyof Slice; label: string }[] = [];
   if (s.sex) out.push({ key: "sex", label: s.sex === "other" ? "Other or unknown sex" : cap(s.sex) });
-  if (s.maritalStatus) out.push({ key: "maritalStatus", label: `Marital status: ${s.maritalStatus === "unknown" ? "Not recorded" : cap(s.maritalStatus)}` });
+  if (s.maritalStatus) out.push({ key: "maritalStatus", label: `Marital status: ${cap(s.maritalStatus)}` });
+  if (s.religion) out.push({ key: "religion", label: `Religion: ${patientReligionLabel(s.religion)}` });
   if (s.ageBand) out.push({ key: "ageBand", label: `Age ${s.ageBand}` });
   if (s.type) out.push({ key: "type", label: `${cap(s.type)} visits` });
   if (s.area) out.push({ key: "area", label: `Area: ${s.area}` });

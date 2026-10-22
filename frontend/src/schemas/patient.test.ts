@@ -10,6 +10,7 @@ const minimumPatient = {
   firstName: "Ama",
   lastName: "Mensah",
   gender: "female",
+  religion: "christianity",
 };
 
 describe("patient form validation", () => {
@@ -27,6 +28,23 @@ describe("patient form validation", () => {
       ...minimumPatient,
       age: "34",
     }).success).toBe(false);
+  });
+
+  it("requires a valid religion and validates the optional contact fields", () => {
+    const base = { ...minimumPatient, age: "34", maritalStatus: "single" };
+    expect(patientFormSchema.safeParse({ ...base, religion: "" }).success).toBe(false);
+    expect(patientFormSchema.safeParse({
+      ...base,
+      email: "not-an-email",
+      postalAddress: "x".repeat(101),
+      occupation: "x".repeat(101),
+    }).success).toBe(false);
+    expect(patientFormSchema.safeParse({
+      ...base,
+      email: "ama@example.com",
+      postalAddress: "P.O. Box 10",
+      occupation: "Teacher",
+    }).success).toBe(true);
   });
   it("requires a phone number to start with zero when provided", () => {
     const result = patientFormSchema.safeParse({
@@ -69,6 +87,7 @@ describe("patient form validation", () => {
       lastName: "Mensah",
       gender: "",
       maritalStatus: "single",
+      religion: "christianity",
       age: "",
       dateOfBirth: "",
     });

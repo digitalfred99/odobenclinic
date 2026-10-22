@@ -1,10 +1,10 @@
-import { apiRequest } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 import type { OPDVisit, OPDVisitListResponse } from "@/types/opd";
 import type { ReportListResponse, ReportRow } from "@/types/report";
 import { formatPatientName } from "@/lib/patient-name";
-import { getCoverage, readDays, storeClosedRange, subtractRange } from "./cache";
+import { readDays, storeClosedRange } from "./cache";
 import { EPOCH, addDays, maxDate, minDate, type Period } from "./period";
-import type { Dataset, LoadProgress, MaritalStatus, PatientRecord, RecordKind, Sex, VisitRecord, VisitType } from "./types";
+import type { Dataset, LoadProgress, MaritalStatus, PatientRecord, RecordKind, Sex, Slice, VisitRecord, VisitType } from "./types";
 
 const PAGE_SIZE = 100;
 const BATCH = 4;
@@ -12,6 +12,23 @@ const BATCH = 4;
 const OPEN_DAYS = 2;
 
 type Progress = (done: number, total: number) => void;
+type ReportFilters = Pick<Slice, "maritalStatus" | "religion">;
+
+function canUseCachedRows(error: unknown) {
+  return error instanceof TypeError
+    || (error instanceof ApiError && (error.status === 408 || error.status === 429 || error.status >= 500));
+}
+
+function reportParams(from: string, to: string, filters: ReportFilters) {
+  const params = new URLSearchParams({ from, to });
+  if (filters.maritalStatus) params.set("maritalStatus", filters.maritalStatus);
+  if (filters.religion) params.set("religion", filters.religion);
+  return params;
+}
+
+function hasReportFilters(filters: ReportFilters) {
+  return Boolean(filters.maritalStatus || filters.religion);
+}
 
 export const endpointFor = (kind: RecordKind) => (kind === "visits" ? "/reports/opd-visits" : "/reports/patients");
 
@@ -180,6 +197,7 @@ async function loadDataset<T extends { date: string }>(
   kind: RecordKind,
   period: Period,
   today: string,
+  signal: AbortSignal,
   refresh: boolean,
   fetchRange: RangeFetcher<T>
 ): Promise<Dataset<T>> {
@@ -192,18 +210,20 @@ async function loadDataset<T extends { date: string }>(
   let usedCache = false;
 
   if (from <= closedTo) {
-    const covered = refresh ? [] : await getCoverage(kind);
-    const gaps = subtractRange([from, closedTo], covered);
-    usedCache = covered.length > 0;
-    const direct: T[] = [];
-
-    for (const [gapFrom, gapTo] of gaps) {
-      const result = await fetchRange(gapFrom, gapTo);
+    const cachedRows = refresh ? [] : await readDays<T>(kind, from, closedTo);
+    try {
+      const result = await fetchRange(from, closedTo);
       warnings.push(...result.warnings);
-      const saved = result.cacheable && (await storeClosedRange(kind, gapFrom, gapTo, bucketByDate(result.rows)));
-      if (!saved) direct.push(...result.rows);
+      rows.push(...result.rows);
+      if (result.cacheable) {
+        await storeClosedRange(kind, from, closedTo, bucketByDate(result.rows));
+      }
+    } catch (error) {
+      if (signal.aborted || refresh || cachedRows.length === 0 || !canUseCachedRows(error)) throw error;
+      rows.push(...cachedRows);
+      usedCache = true;
+      warnings.push("The server could not be reached, so saved report data is shown and may be out of date.");
     }
-    rows.push(...(await readDays<T>(kind, from, closedTo)), ...direct);
   }
 
   const openFrom = maxDate(from, addDays(closedLimit, 1));
@@ -222,10 +242,11 @@ export function loadVisits(
   today: string,
   signal: AbortSignal,
   onProgress: (progress: LoadProgress) => void,
-  refresh = false
+  refresh = false,
+  filters: ReportFilters = { maritalStatus: "", religion: "" }
 ) {
-  return loadDataset<VisitRecord>("visits", period, today, refresh, async (from, to) => {
-    const params = new URLSearchParams({ from, to });
+  const fetchRange: RangeFetcher<VisitRecord> = async (from, to) => {
+    const params = reportParams(from, to, filters);
     const reportRows = await fetchReportRows("/reports/opd-visits", params, signal, (done, total) =>
       onProgress({ label: "Loading visits", done, total })
     );
@@ -271,7 +292,14 @@ export function loadVisits(
       return record ? [record] : [];
     });
     return { rows, cacheable, warnings };
-  });
+  };
+  if (hasReportFilters(filters)) {
+    const from = period.from || EPOCH;
+    const to = minDate(period.to || today, today);
+    if (from > to) return Promise.resolve({ rows: [], warnings: [], usedCache: false });
+    return fetchRange(from, to).then(({ rows, warnings }) => ({ rows, warnings, usedCache: false }));
+  }
+  return loadDataset<VisitRecord>("visits", period, today, signal, refresh, fetchRange);
 }
 
 export function loadPatients(
@@ -279,10 +307,11 @@ export function loadPatients(
   today: string,
   signal: AbortSignal,
   onProgress: (progress: LoadProgress) => void,
-  refresh = false
+  refresh = false,
+  filters: ReportFilters = { maritalStatus: "", religion: "" }
 ) {
-  return loadDataset<PatientRecord>("patients", period, today, refresh, async (from, to) => {
-    const reportRows = await fetchReportRows("/reports/patients", new URLSearchParams({ from, to }), signal, (done, total) =>
+  const fetchRange: RangeFetcher<PatientRecord> = async (from, to) => {
+    const reportRows = await fetchReportRows("/reports/patients", reportParams(from, to, filters), signal, (done, total) =>
       onProgress({ label: "Loading registrations", done, total })
     );
     const rows = reportRows.flatMap((row) => {
@@ -290,7 +319,14 @@ export function loadPatients(
       return record ? [record] : [];
     });
     return { rows, cacheable: true, warnings: [] };
-  });
+  };
+  if (hasReportFilters(filters)) {
+    const from = period.from || EPOCH;
+    const to = minDate(period.to || today, today);
+    if (from > to) return Promise.resolve({ rows: [], warnings: [], usedCache: false });
+    return fetchRange(from, to).then(({ rows, warnings }) => ({ rows, warnings, usedCache: false }));
+  }
+  return loadDataset<PatientRecord>("patients", period, today, signal, refresh, fetchRange);
 }
 
 /* ---------- full rows, only when a table page or an export needs names and phones ---------- */
@@ -334,8 +370,15 @@ export function clearDetailsCache() {
   detailsCache.clear();
 }
 
-export function fetchFullRows(kind: RecordKind, period: Period, today: string, signal: AbortSignal, onProgress: Progress) {
-  const params = new URLSearchParams({ from: period.from || EPOCH, to: period.to || today });
+export function fetchFullRows(
+  kind: RecordKind,
+  period: Period,
+  today: string,
+  signal: AbortSignal,
+  onProgress: Progress,
+  filters: ReportFilters = { maritalStatus: "", religion: "" }
+) {
+  const params = reportParams(period.from || EPOCH, minDate(period.to || today, today), filters);
   return fetchReportRows(endpointFor(kind), params, signal, onProgress);
 }
 

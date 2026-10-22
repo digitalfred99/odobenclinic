@@ -1,5 +1,7 @@
 import { formatPatientDisplayId, formatReportDate, formatReportDateTime } from "@/lib/reporting";
 import type { ReportRow } from "@/types/report";
+import { patientReligionLabel } from "@/types/patient";
+import { formatPatientName } from "@/lib/patient-name";
 import { WEEKDAYS, type Bucket, type Heatmap, type PyramidRow, type Quality, type Ranked, type Summary } from "./analytics";
 import type { RecordKind } from "./types";
 
@@ -45,7 +47,8 @@ function toArgb([red, green, blue]: RGB): string {
 }
 
 export type ReportField =
-  | "patientId" | "firstName" | "otherName" | "lastName" | "name" | "dateOfBirth" | "age" | "phone" | "region" | "district"
+  | "patientId" | "firstName" | "otherName" | "lastName" | "name" | "dateOfBirth" | "age" | "phone" | "email" | "postalAddress"
+  | "occupation" | "religion" | "region" | "district"
   | "town" | "gender" | "maritalStatus" | "area" | "ghCardNumber" | "nhisNumber" | "date" | "dateRegistered"
   | "newReturning" | "visitRecordedAt" | "visitsInReport" | "remarks";
 export type ReportFieldOption = { key: ReportField; label: string };
@@ -56,7 +59,9 @@ export function getReportFields(kind: RecordKind): ReportFieldOption[] {
       { key: "patientId", label: "Patient ID / OPD No." }, { key: "firstName", label: "First name" },
       { key: "otherName", label: "Other name" }, { key: "lastName", label: "Last name" }, { key: "name", label: "Full name" },
       { key: "dateOfBirth", label: "Date of birth" }, { key: "age", label: "Age" },
-      { key: "phone", label: "Phone" }, { key: "gender", label: "Gender" },
+      { key: "phone", label: "Phone" }, { key: "email", label: "Email" },
+      { key: "postalAddress", label: "Postal address" }, { key: "occupation", label: "Occupation" },
+      { key: "religion", label: "Religion" }, { key: "gender", label: "Gender" },
       { key: "maritalStatus", label: "Marital status" }, { key: "ghCardNumber", label: "Ghana Card number" },
       { key: "nhisNumber", label: "NHIS number" }, { key: "region", label: "Region" },
       { key: "district", label: "District" }, { key: "town", label: "Town" },
@@ -71,11 +76,16 @@ export function getReportFields(kind: RecordKind): ReportFieldOption[] {
   ];
 }
 
-export const PERSONAL_FIELDS: ReportField[] = ["firstName", "otherName", "lastName", "name", "dateOfBirth", "phone", "ghCardNumber", "nhisNumber"];
+export const PERSONAL_FIELDS: ReportField[] = [
+  "firstName", "otherName", "lastName", "name", "dateOfBirth", "phone", "email", "postalAddress",
+  "occupation", "religion", "ghCardNumber", "nhisNumber",
+];
 
 function rawValue(row: ReportRow, kind: RecordKind, field: ReportField): string | number | boolean | null {
   switch (field) {
     case "patientId": return formatPatientDisplayId(row.patientId);
+    case "name": return formatPatientName(row) || row.name;
+    case "religion": return patientReligionLabel(row.religion);
     case "date": return kind === "patients" ? (row.dateRegistered ?? row.date ?? null) : row.date ?? null;
     default: return (row[field as keyof ReportRow] as string | number | boolean | null | undefined) ?? null;
   }

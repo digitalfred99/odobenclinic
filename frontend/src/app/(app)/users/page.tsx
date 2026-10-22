@@ -65,7 +65,7 @@ export default function UsersPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = useDebouncedValue(search, 350);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -356,14 +356,33 @@ export default function UsersPage() {
         <div className="mb-4 grid gap-3 md:grid-cols-[1.5fr_0.8fr_0.8fr]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Search users" />
+            <label htmlFor="user-list-search" className="sr-only">Search users by first name, last name, or phone</label>
+            <Input
+              id="user-list-search"
+              value={search}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+              className="pl-9 pr-11"
+              placeholder="Search first name, last name, or phone"
+            />
+            {search ? (
+              <button
+                type="button"
+                aria-label="Clear user search"
+                className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => { setSearch(""); setPage(1); }}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
-          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+          <label htmlFor="user-role-filter" className="sr-only">Filter users by role</label>
+          <select id="user-role-filter" value={roleFilter} onChange={(event) => { setRoleFilter(event.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
             <option value="">All roles</option>
             <option value="admin">Admin</option>
             <option value="receptionist">Receptionist</option>
           </select>
-          <select value={activeFilter} onChange={(event) => setActiveFilter(event.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+          <label htmlFor="user-status-filter" className="sr-only">Filter users by status</label>
+          <select id="user-status-filter" value={activeFilter} onChange={(event) => { setActiveFilter(event.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
             <option value="">All status</option>
             <option value="true">Active</option>
             <option value="false">Inactive</option>
@@ -376,8 +395,8 @@ export default function UsersPage() {
           <div className="space-y-3">
             {[1, 2, 3].map((item) => <div key={item} className="h-14 animate-pulse rounded-xl bg-muted" />)}
           </div>
-        ) : users.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No users match the current filters.</div>
+        ) : queryError ? null : users.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No users match your search or filters.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">

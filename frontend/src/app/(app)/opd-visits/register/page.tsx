@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
+import { patientReligionLabel } from "@/types/patient";
 import { buildOPDVisitQuery, type VisitDateRange } from "@/lib/opd-visits";
 import { Button } from "@/components/ui/button";
 import { CloseButton } from "@/components/ui/close-button";
@@ -30,14 +31,6 @@ type PatientsLookupResponse = {
   };
 };
 
-/* Optional fields. If your Patient type already has them, nothing changes;
-   if it does not, they are simply skipped at runtime. */
-type PatientWithMeta = Patient & {
-  age?: number | string | null;
-  gender?: string | null;
-  sex?: string | null;
-};
-
 const REMARKS_LIMIT = 500;
 const EMPTY_RANGE: VisitDateRange = { dateFrom: "", dateTo: "" };
 const SEARCH_RESULTS_ID = "opd-patient-results";
@@ -57,15 +50,14 @@ function optionId(patientId: string) {
 
 /** Second identifier (age and sex) so two people with the same name are easy to tell apart. */
 function identityLine(patient: Patient) {
-  const p = patient as PatientWithMeta;
   const parts: string[] = [];
 
-  const age = p.age;
+  const age = patient.age;
   if (age !== undefined && age !== null && String(age).trim() !== "") {
     parts.push(`${age} yrs`);
   }
 
-  const sex = p.gender ?? p.sex;
+  const sex = patient.gender;
   if (sex) {
     const text = String(sex);
     parts.push(text.charAt(0).toUpperCase() + text.slice(1).toLowerCase());
@@ -75,7 +67,7 @@ function identityLine(patient: Patient) {
 }
 
 function contactDetails(patient: Patient) {
-  return [patient.phone, patient.town, patient.area].filter(
+  return [patient.phone, patient.email, patient.town, patient.area].filter(
     (value): value is string => typeof value === "string" && value.trim().length > 0
   );
 }
@@ -153,7 +145,13 @@ function PatientDetailsDialog({
   const facts = [
     { label: "OPD No.", value: formatPatientId(patient.patientId) },
     { label: "Age and sex", value: identityLine(patient) },
+    { label: "Other name", value: String(patient.otherName ?? "") },
+    { label: "Marital status", value: String(patient.maritalStatus ?? "") },
+    { label: "Religion", value: patientReligionLabel(patient.religion) },
     { label: "Phone", value: String(patient.phone ?? "") },
+    { label: "Email", value: String(patient.email ?? "") },
+    { label: "Postal address", value: String(patient.postalAddress ?? "") },
+    { label: "Occupation", value: String(patient.occupation ?? "") },
     { label: "Town", value: String(patient.town ?? "") },
     { label: "Area", value: String(patient.area ?? "") },
   ].filter((fact) => fact.value.trim().length > 0);

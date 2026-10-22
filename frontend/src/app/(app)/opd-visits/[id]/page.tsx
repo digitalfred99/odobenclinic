@@ -2,11 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
-import { ArrowLeft, CalendarDays, CalendarPlus, ClipboardList, CreditCard, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, BriefcaseBusiness, CalendarDays, CalendarPlus, ClipboardList, CreditCard, Mail, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
+import { patientReligionLabel } from "@/types/patient";
 import type { OPDVisit } from "@/types/opd";
 
 function formatDate(value?: string | null) {
@@ -145,6 +146,34 @@ export default function OPDVisitDetailPage() {
                   {visit.patient.phone || "Not provided"}
                 </dd>
               </div>
+              {visit.patient.email?.trim() ? (
+                <div>
+                  <dt className={labelClassName}>Email</dt>
+                  <dd className={`${valueClassName} flex items-center gap-2 break-words`}>
+                    <Mail className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />{visit.patient.email}
+                  </dd>
+                </div>
+              ) : null}
+              {visit.patient.postalAddress?.trim() ? (
+                <div>
+                  <dt className={labelClassName}>Postal address</dt>
+                  <dd className={`${valueClassName} break-words`}>{visit.patient.postalAddress}</dd>
+                </div>
+              ) : null}
+              {visit.patient.occupation?.trim() ? (
+                <div>
+                  <dt className={labelClassName}>Occupation</dt>
+                  <dd className={`${valueClassName} flex items-center gap-2`}>
+                    <BriefcaseBusiness className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />{visit.patient.occupation}
+                  </dd>
+                </div>
+              ) : null}
+              {visit.patient.religion ? (
+                <div>
+                  <dt className={labelClassName}>Religion</dt>
+                  <dd className={valueClassName}>{patientReligionLabel(visit.patient.religion)}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className={labelClassName}>Ghana Card number</dt>
                 <dd className={`${valueClassName} flex items-center gap-2`}>
