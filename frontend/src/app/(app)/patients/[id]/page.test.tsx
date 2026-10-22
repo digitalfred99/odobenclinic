@@ -52,6 +52,7 @@ describe("PatientDetailPage", () => {
     vi.mocked(apiRequest).mockResolvedValueOnce({
       id: "patient-uuid",
       firstName: "Ama",
+      otherName: "Yaa",
       lastName: "Mensah",
       patientId: "PT-12/2026",
       dateOfBirth: "1990-04-15",
@@ -62,6 +63,8 @@ describe("PatientDetailPage", () => {
       gender: "female",
       maritalStatus: "married",
       religion: "christianity",
+      occupation: "Teacher",
+      postalAddress: "P.O. Box 10",
       region: "Greater Accra",
       district: "Accra Metro",
       town: "Accra",
@@ -69,17 +72,39 @@ describe("PatientDetailPage", () => {
       createdAt: "2026-10-04T12:34:00.000Z",
       createdBy: { id: "staff-id", firstName: "Kojo", lastName: "Owusu" },
     });
-    vi.mocked(apiRequest).mockResolvedValueOnce({ opdVisits: [], pagination: { total: 0, totalPages: 1 } });
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      opdVisits: [{
+        id: "visit-1",
+        date: "2026-10-09",
+        patient: { id: "patient-uuid", firstName: "Ama", lastName: "Mensah" },
+      }],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
 
     renderPatientDetail();
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Ama Mensah" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Ama Yaa Mensah" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Personal details" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contact & location" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Record history" })).toBeInTheDocument();
+    expect(screen.getByText("First name").parentElement).toHaveTextContent("Ama");
+    expect(screen.getByText("Other name").parentElement).toHaveTextContent("Yaa");
+    expect(screen.getByText("Last name").parentElement).toHaveTextContent("Mensah");
+    expect(screen.getByText("Occupation").parentElement).toHaveTextContent("Teacher");
+    const locationFields = ["Phone", "Region", "District", "Town", "Area", "Postal address"]
+      .map((label) => screen.getByText(label));
+    for (let index = 0; index < locationFields.length - 1; index += 1) {
+      expect(
+        locationFields[index].compareDocumentPosition(locationFields[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    }
     expect(screen.getByText("GHA-123456789-0")).toBeInTheDocument();
     expect(screen.getByText("56738945")).toBeInTheDocument();
     expect(screen.getByText("OPD No. 12/2026")).toBeInTheDocument();
-    expect(screen.getByText("Record created")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Record history" }).parentElement).toHaveTextContent("Record created");
+    await screen.findByText("Last visit date");
+    expect(screen.getByRole("heading", { name: "Record history" }).parentElement).toHaveTextContent("Last visit date");
+    expect(screen.getByRole("heading", { name: "Record history" }).parentElement).toHaveTextContent("Registered by");
     expect(screen.getByText("This patient ID is permanent and is also the OPD No. used for every visit.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Register OPD visit" }));

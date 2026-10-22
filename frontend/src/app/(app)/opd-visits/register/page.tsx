@@ -144,8 +144,10 @@ function PatientDetailsDialog({
 
   const facts = [
     { label: "OPD No.", value: formatPatientId(patient.patientId) },
-    { label: "Age and sex", value: identityLine(patient) },
+    { label: "First name", value: String(patient.firstName ?? "") },
     { label: "Other name", value: String(patient.otherName ?? "") },
+    { label: "Last name", value: String(patient.lastName ?? "") },
+    { label: "Age and sex", value: identityLine(patient) },
     { label: "Marital status", value: String(patient.maritalStatus ?? "") },
     { label: "Religion", value: patientReligionLabel(patient.religion) },
     { label: "Phone", value: String(patient.phone ?? "") },

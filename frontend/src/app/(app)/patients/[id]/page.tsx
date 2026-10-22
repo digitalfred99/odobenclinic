@@ -307,12 +307,15 @@ export default function PatientDetailPage() {
               <section aria-labelledby="patient-personal-details">
                 <h4 id="patient-personal-details" className="font-semibold text-foreground">Personal details</h4>
                 <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                  <div><PatientDetailLabel icon={CalendarDays}>Date of birth</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.dateOfBirth)}</dd></div>
+                  <div><PatientDetailLabel icon={UserRound}>First name</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.firstName)}</dd></div>
                   <div><PatientDetailLabel icon={UserRound}>Other name</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.otherName)}</dd></div>
+                  <div><PatientDetailLabel icon={UserRound}>Last name</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.lastName)}</dd></div>
+                  <div><PatientDetailLabel icon={CalendarDays}>Date of birth</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.dateOfBirth)}</dd></div>
                   <div><PatientDetailLabel icon={Cake}>Age</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.age)}</dd></div>
                   <div><PatientDetailLabel icon={UserRound}>Gender</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.gender)}</dd></div>
                   <div><PatientDetailLabel icon={UsersRound}>Marital status</PatientDetailLabel><dd className={`${valueClassName} capitalize`}>{displayValue(patient.maritalStatus)}</dd></div>
                   <div><PatientDetailLabel icon={UserRound}>Religion</PatientDetailLabel><dd className={valueClassName}>{patientReligionLabel(patient.religion) || "Not provided"}</dd></div>
+                  {patient.occupation?.trim() ? <div><PatientDetailLabel icon={BriefcaseBusiness}>Occupation</PatientDetailLabel><dd className={valueClassName}>{patient.occupation}</dd></div> : null}
                   <div><PatientDetailLabel icon={CreditCard}>Ghana Card number</PatientDetailLabel><dd className={valueClassName}>{patient.ghCardNumber?.trim() || "N/A"}</dd></div>
                   <div><PatientDetailLabel icon={ShieldCheck}>NHIS number</PatientDetailLabel><dd className={valueClassName}>{patient.nhisNumber?.trim() || "N/A"}</dd></div>
                 </dl>
@@ -323,12 +326,17 @@ export default function PatientDetailPage() {
                 <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
                   <div><PatientDetailLabel icon={Phone}>Phone</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.phone)}</dd></div>
                   {patient.email?.trim() ? <div><PatientDetailLabel icon={Mail}>Email</PatientDetailLabel><dd className={`${valueClassName} break-words`}>{patient.email}</dd></div> : null}
-                  {patient.postalAddress?.trim() ? <div><PatientDetailLabel icon={MapPin}>Postal address</PatientDetailLabel><dd className={`${valueClassName} break-words`}>{patient.postalAddress}</dd></div> : null}
-                  {patient.occupation?.trim() ? <div><PatientDetailLabel icon={BriefcaseBusiness}>Occupation</PatientDetailLabel><dd className={valueClassName}>{patient.occupation}</dd></div> : null}
                   <div><PatientDetailLabel icon={MapPin}>Region</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.region)}</dd></div>
                   <div><PatientDetailLabel icon={Building2}>District</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.district)}</dd></div>
                   <div><PatientDetailLabel icon={MapPin}>Town</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.town)}</dd></div>
                   <div><PatientDetailLabel icon={MapPin}>Area</PatientDetailLabel><dd className={valueClassName}>{displayValue(patient.area)}</dd></div>
+                  {patient.postalAddress?.trim() ? <div><PatientDetailLabel icon={MapPin}>Postal address</PatientDetailLabel><dd className={`${valueClassName} break-words`}>{patient.postalAddress}</dd></div> : null}
+                </dl>
+              </section>
+
+              <section aria-labelledby="patient-record-history" className="border-t border-border pt-5">
+                <h4 id="patient-record-history" className="font-semibold text-foreground">Record history</h4>
+                <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
                   {formatTimestamp(patient.createdAt) ? (
                     <div>
                       <PatientDetailLabel icon={CalendarPlus}>Record created</PatientDetailLabel>

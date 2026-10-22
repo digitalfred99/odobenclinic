@@ -65,6 +65,7 @@ describe("OPDVisitRegistrationPage", () => {
     const patient = {
       id: "patient-uuid",
       firstName: "Ama",
+      otherName: "Yaa",
       lastName: "Mensah",
       patientId: "PT-12/2026",
       phone: "0".repeat(10),
@@ -80,14 +81,14 @@ describe("OPDVisitRegistrationPage", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Search for a patient" }), {
       target: { value: "Ama" },
     });
-    const patientMatch = await screen.findByRole("option", { name: /Ama Mensah/ });
+    const patientMatch = await screen.findByRole("option", { name: /Ama Yaa Mensah/ });
     expect(patientMatch).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Odoben")).toBeInTheDocument();
     expect(screen.getByText("Awendadze")).toBeInTheDocument();
     fireEvent.click(patientMatch);
 
     expect(replace).toHaveBeenCalledWith("/opd-visits/register?patientId=patient-uuid", { scroll: false });
-    expect(screen.getAllByText("Ama Mensah")).toHaveLength(1);
+    expect(screen.getAllByText("Ama Yaa Mensah")).toHaveLength(1);
     expect(screen.getAllByText("OPD No. 12/2026")).toHaveLength(1);
     expect(screen.getAllByAltText("")).toHaveLength(1);
     expect(screen.getByAltText("")).toHaveAttribute("src", expect.stringContaining("/uploads/patients/ama.jpg"));
@@ -95,8 +96,11 @@ describe("OPDVisitRegistrationPage", () => {
 
     const previousPosition = document.body.style.position;
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    fireEvent.click(screen.getAllByRole("button", { name: "More details for Ama Mensah" }).at(-1)!);
+    fireEvent.click(screen.getAllByRole("button", { name: "More details for Ama Yaa Mensah" }).at(-1)!);
     expect(screen.getAllByAltText("")).toHaveLength(2);
+    expect(screen.getByText("First name").parentElement).toHaveTextContent("Ama");
+    expect(screen.getByText("Other name").parentElement).toHaveTextContent("Yaa");
+    expect(screen.getByText("Last name").parentElement).toHaveTextContent("Mensah");
     const detailsDialog = document.querySelector("dialog");
     expect(detailsDialog?.querySelector("img")).not.toBeNull();
     expect(detailsDialog?.querySelector('button[aria-label="Close details"]')).toHaveClass(
@@ -114,7 +118,7 @@ describe("OPDVisitRegistrationPage", () => {
     expect(document.activeElement).toBe(detailsDialog?.querySelector("#patient-details-title"));
     expect(document.body.style.position).toBe("fixed");
     fireEvent.click(detailsDialog?.querySelector('button[aria-label="Close details"]') as HTMLButtonElement);
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Ama Mensah" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Ama Yaa Mensah" })).not.toBeInTheDocument());
     expect(document.body.style.position).toBe(previousPosition);
     expect(scrollTo).toHaveBeenCalled();
     scrollTo.mockRestore();

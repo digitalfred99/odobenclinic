@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,9 +21,24 @@ export function RefreshControl({ className }: { className?: string }) {
     setRefreshing({ pathname, requestId });
     setStatus(null);
     try {
-      await queryClient.refetchQueries({ type: "active" }, { throwOnError: true });
+      const activeQueries = queryClient
+        .getQueryCache()
+        .findAll({ type: "active" })
+        .filter((query) => !query.isDisabled() && !query.isStatic());
+
+      await queryClient.refetchQueries({ type: "active" });
+
+      const refreshFailed = activeQueries.some(
+        (query) => query.state.status === "error" && !isCancelledError(query.state.error)
+      );
       if (requestId === requestIdRef.current) {
-        setStatus({ pathname, message: "Page data refreshed.", isError: false });
+        setStatus({
+          pathname,
+          message: refreshFailed
+            ? "Some data could not be refreshed. Please try again."
+            : "Page data refreshed.",
+          isError: refreshFailed,
+        });
       }
     } catch {
       if (requestId === requestIdRef.current) {

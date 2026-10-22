@@ -481,6 +481,18 @@ export function PatientForm({
         </div>
       </div>
 
+      <div className="space-y-2">
+        <label htmlFor="occupation" className="text-sm font-medium text-foreground">Occupation</label>
+        <Input
+          id="occupation"
+          maxLength={100}
+          aria-invalid={Boolean(form.formState.errors.occupation || serverFieldErrors?.occupation)}
+          {...form.register("occupation")}
+        />
+        {form.formState.errors.occupation ? <p className="text-sm text-destructive">{form.formState.errors.occupation.message}</p> : null}
+        {serverFieldErrors?.occupation ? <p className="text-sm text-destructive">{serverFieldErrors.occupation}</p> : null}
+      </div>
+
       <section className="space-y-4 border-t border-border pt-5" aria-labelledby="patient-identification-heading">
         <div>
           <h3 id="patient-identification-heading" className="text-base font-semibold text-foreground">Identification</h3>
@@ -559,31 +571,6 @@ export function PatientForm({
             />
             {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
             {serverFieldErrors?.email ? <p className="text-sm text-destructive">{serverFieldErrors.email}</p> : null}
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label htmlFor="postalAddress" className="text-sm font-medium text-foreground">Postal address</label>
-            <Input
-              id="postalAddress"
-              maxLength={100}
-              aria-invalid={Boolean(form.formState.errors.postalAddress || serverFieldErrors?.postalAddress)}
-              {...form.register("postalAddress")}
-            />
-            {form.formState.errors.postalAddress ? <p className="text-sm text-destructive">{form.formState.errors.postalAddress.message}</p> : null}
-            {serverFieldErrors?.postalAddress ? <p className="text-sm text-destructive">{serverFieldErrors.postalAddress}</p> : null}
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="occupation" className="text-sm font-medium text-foreground">Occupation</label>
-            <Input
-              id="occupation"
-              maxLength={100}
-              aria-invalid={Boolean(form.formState.errors.occupation || serverFieldErrors?.occupation)}
-              {...form.register("occupation")}
-            />
-            {form.formState.errors.occupation ? <p className="text-sm text-destructive">{form.formState.errors.occupation.message}</p> : null}
-            {serverFieldErrors?.occupation ? <p className="text-sm text-destructive">{serverFieldErrors.occupation}</p> : null}
           </div>
         </div>
 
@@ -669,6 +656,18 @@ export function PatientForm({
               )}
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="postalAddress" className="text-sm font-medium text-foreground">Postal address</label>
+          <Input
+            id="postalAddress"
+            maxLength={100}
+            aria-invalid={Boolean(form.formState.errors.postalAddress || serverFieldErrors?.postalAddress)}
+            {...form.register("postalAddress")}
+          />
+          {form.formState.errors.postalAddress ? <p className="text-sm text-destructive">{form.formState.errors.postalAddress.message}</p> : null}
+          {serverFieldErrors?.postalAddress ? <p className="text-sm text-destructive">{serverFieldErrors.postalAddress}</p> : null}
         </div>
       </section>
 

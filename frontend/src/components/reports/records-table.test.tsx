@@ -53,6 +53,32 @@ describe("patient report records", () => {
     });
   });
 
+  it("shows useful search fields in the desktop-expanded hint", () => {
+    renderTable();
+
+    const search = screen.getByRole("searchbox", {
+      name: "Search records by patient name, other name, phone, date of birth, age, OPD number, Ghana Card, NHIS, location, or occupation",
+    });
+
+    expect(search).toHaveAttribute("placeholder", "Search name, OPD No. & more...");
+    expect(search.parentElement).toHaveClass("lg:hover:w-[40rem]", "lg:focus-within:w-[40rem]", "lg:transition-[width]");
+
+    fireEvent.mouseEnter(search.parentElement!);
+    expect(search).toHaveAttribute(
+      "placeholder",
+      "Search name, phone, DOB/age, OPD No., Ghana Card/NHIS, location, occupation & more..."
+    );
+
+    fireEvent.mouseLeave(search.parentElement!);
+    expect(search).toHaveAttribute("placeholder", "Search name, OPD No. & more...");
+
+    fireEvent.focus(search);
+    expect(search).toHaveAttribute(
+      "placeholder",
+      "Search name, phone, DOB/age, OPD No., Ghana Card/NHIS, location, occupation & more..."
+    );
+  });
+
   it("searches by patient name and shows actionable missing-field details", async () => {
     renderTable();
     expect(await screen.findAllByText("Missing: phone number, date of birth, Ghana Card, NHIS number, area")).not.toHaveLength(0);

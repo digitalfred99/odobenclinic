@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
 }));
 
-function renderRefreshControl(queryFn: () => Promise<string>) {
+function renderRefreshControl(queryFn: (context: { signal: AbortSignal }) => Promise<string>) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -75,6 +75,23 @@ describe("RefreshControl", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh page data" }));
 
     expect(await screen.findByText("Some data could not be refreshed. Please try again.")).toBeInTheDocument();
+  });
+
+  it("does not report an expected query cancellation as a refresh failure", async () => {
+    const queryFn = vi.fn()
+      .mockResolvedValueOnce("cached")
+      .mockImplementationOnce(({ signal }: { signal: AbortSignal }) => new Promise<string>((resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      }));
+    const { queryClient } = renderRefreshControl(queryFn);
+    await waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh page data" }));
+    await waitFor(() => expect(queryFn).toHaveBeenCalledTimes(2));
+    await queryClient.cancelQueries({ queryKey: ["active-page"] });
+
+    expect(await screen.findByText("Page data refreshed.")).toBeInTheDocument();
+    expect(screen.queryByText("Some data could not be refreshed. Please try again.")).not.toBeInTheDocument();
   });
 
   it("clears the result when navigating and ignores an old refresh completion", async () => {

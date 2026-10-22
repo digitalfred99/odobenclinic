@@ -51,6 +51,28 @@ describe("PatientForm defaults and guidance", () => {
     expect(screen.getByLabelText(/^Religion/)).toHaveValue("");
   });
 
+  it("places occupation with personal fields and postal address after geographic location", () => {
+    render(<PatientForm onSubmit={vi.fn()} />);
+
+    const fields = [
+      screen.getByLabelText(/^Religion/),
+      screen.getByLabelText("Occupation"),
+      screen.getByLabelText("Phone"),
+      screen.getByLabelText("Email"),
+      screen.getByLabelText("Region"),
+      screen.getByLabelText("District"),
+      screen.getByLabelText("Town"),
+      screen.getByLabelText("Area"),
+      screen.getByLabelText("Postal address"),
+    ];
+
+    for (let index = 0; index < fields.length - 1; index += 1) {
+      expect(
+        fields[index].compareDocumentPosition(fields[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    }
+  });
+
   it("reports field edits, including cleared values, so server errors can be cleared", () => {
     const onFieldChange = vi.fn();
     render(<PatientForm onSubmit={vi.fn()} onFieldChange={onFieldChange} />);

@@ -52,7 +52,10 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState("");
+  const [searchHovered, setSearchHovered] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const debouncedSearch = useDebouncedValue(search.trim());
+  const expandedSearchHint = searchHovered || searchFocused;
   const patientSearch = useQuery({
     queryKey: ["rpt-patient-search", debouncedSearch],
     enabled: debouncedSearch.length >= 2,
@@ -197,11 +200,22 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
         </p>
       ) : null}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <input
-          type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Search by name, other name or OPD No." aria-label="Search records by patient name, other name or OPD number"
-          className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm sm:w-64"
-        />
+        <div
+          className="w-full min-w-0 sm:w-64 lg:transition-[width] lg:duration-300 lg:ease-out lg:motion-reduce:transition-none lg:hover:w-[40rem] lg:focus-within:w-[40rem]"
+          onMouseEnter={() => { if (window.innerWidth >= 1024) setSearchHovered(true); }}
+          onMouseLeave={() => setSearchHovered(false)}
+        >
+          <input
+            type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onFocus={() => { if (window.innerWidth >= 1024) setSearchFocused(true); }}
+            onBlur={() => setSearchFocused(false)}
+            placeholder={expandedSearchHint
+              ? "Search name, phone, DOB/age, OPD No., Ghana Card/NHIS, location, occupation & more..."
+              : "Search name, OPD No. & more..."}
+            aria-label="Search records by patient name, other name, phone, date of birth, age, OPD number, Ghana Card, NHIS, location, or occupation"
+            className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm"
+          />
+        </div>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           Rows per page
           <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className={selectClass}>
