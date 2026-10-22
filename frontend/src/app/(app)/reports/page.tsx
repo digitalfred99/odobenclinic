@@ -608,7 +608,7 @@ function ReportsPageContent() {
             <p className="mt-1 text-xs">{label}{filterSummary ? ` | ${filterSummary}` : ""} | {print.rows.length.toLocaleString()} rows</p>
             <p className="mt-1 text-xs text-muted-foreground">Generated {format(new Date(), "d MMM yyyy, HH:mm")}</p>
           </header>
-          <table className="mt-3 w-full text-left text-xs">
+          <table className="print-table mt-3 w-full text-left text-xs">
             <thead><tr className="border-b border-border">{print.fields.map((f) => <th key={f} className="bg-primary px-2 py-2 font-semibold text-primary-foreground">{getReportFields(print.kind).find((o) => o.key === f)?.label}</th>)}</tr></thead>
             <tbody>
               {print.rows.map((row, i) => (

@@ -6,6 +6,7 @@ import { ArrowLeft, BriefcaseBusiness, CalendarDays, CalendarPlus, ClipboardList
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
+import { FACILITY_NAME } from "@/lib/facility";
 import { formatPatientName } from "@/lib/patient-name";
 import { patientReligionLabel } from "@/types/patient";
 import type { OPDVisit } from "@/types/opd";
@@ -40,8 +41,8 @@ export default function OPDVisitDetailPage() {
   const valueClassName = "mt-1.5 text-sm font-medium text-foreground";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="opd-visit-page space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             type="button"
@@ -73,7 +74,7 @@ export default function OPDVisitDetailPage() {
       </div>
 
       {isLoading ? (
-        <section className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm" aria-label="Loading visit details" aria-busy="true">
+        <section className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm print:hidden" aria-label="Loading visit details" aria-busy="true">
           <div className="h-6 w-48 animate-pulse rounded bg-muted" />
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }, (_, index) => (
@@ -87,7 +88,7 @@ export default function OPDVisitDetailPage() {
       ) : null}
 
       {isError ? (
-        <section className="rounded-2xl border border-destructive/40 bg-card p-6 shadow-sm" role="alert">
+        <section className="rounded-2xl border border-destructive/40 bg-card p-6 shadow-sm print:hidden" role="alert">
           <h3 className="font-semibold text-foreground">Unable to load this visit</h3>
           <p className="mt-1 text-sm text-muted-foreground">The visit may have been removed, or there may be a connection problem.</p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -98,33 +99,44 @@ export default function OPDVisitDetailPage() {
       ) : null}
 
       {visit ? (
-        <div className="space-y-5">
-          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm print:shadow-none">
+        <div className="opd-visit-print">
+          <header className="opd-visit-print-header hidden print:flex">
+            <div>
+              <p className="opd-visit-print-facility">{FACILITY_NAME}</p>
+              <p className="opd-visit-print-department">Outpatient Department</p>
+            </div>
+            <div className="opd-visit-print-title">
+              <h1>OPD Visit Record</h1>
+              <p>{formatDate(visit.date)}</p>
+            </div>
+          </header>
+
+          <section className="opd-visit-print-section rounded-2xl border border-border bg-card p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
               <div>
                 <p className={labelClassName}>Patient</p>
-                <h3 className="mt-1 text-xl font-semibold text-foreground">{formatPatientName(visit.patient)}</h3>
+                <h3 className="opd-visit-print-name mt-1 text-xl font-semibold text-foreground">{formatPatientName(visit.patient)}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">OPD No. {formatOPDNo(visit.patient.patientId)}</p>
               </div>
               {visit.newReturning ? (
-                <span className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold capitalize text-secondary-foreground">
+                <span className="opd-visit-print-status rounded-full bg-secondary px-3 py-1 text-sm font-semibold capitalize text-secondary-foreground">
                   {visit.newReturning} patient
                 </span>
               ) : null}
             </div>
 
-            <dl className="grid gap-x-6 gap-y-5 pt-5 sm:grid-cols-2 lg:grid-cols-3">
+            <dl className="opd-visit-print-details grid gap-x-6 gap-y-5 pt-5 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <dt className={labelClassName}>Visit date</dt>
-                <dd className={`${valueClassName} flex items-center gap-2`}>
+                <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2`}>
                   <CalendarDays className="h-4 w-4 text-primary" aria-hidden="true" />
                   {formatDate(visit.date)}
                 </dd>
                 {formatTimestamp(visit.createdAt) ? (
-                  <dd className="mt-1.5 text-xs text-muted-foreground">Recorded {formatTimestamp(visit.createdAt)}</dd>
+                  <dd className="opd-visit-print-recorded mt-1.5 text-xs text-muted-foreground">Recorded {formatTimestamp(visit.createdAt)}</dd>
                 ) : null}
               </div>
-              <div>
+              <div className="opd-visit-print-redundant">
                 <dt className={labelClassName}>OPD No.</dt>
                 <dd className={valueClassName}>{formatOPDNo(visit.patient.patientId)}</dd>
               </div>
@@ -132,16 +144,16 @@ export default function OPDVisitDetailPage() {
                 <dt className={labelClassName}>Visit classification</dt>
                 <dd className={`${valueClassName} capitalize`}>{visit.newReturning ?? "Not recorded"}</dd>
               </div>
-              <div>
+              <div className="opd-visit-print-redundant">
                 <dt className={labelClassName}>Patient name</dt>
-                <dd className={`${valueClassName} flex items-center gap-2`}>
+                <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2`}>
                   <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
                   {formatPatientName(visit.patient)}
                 </dd>
               </div>
               <div>
                 <dt className={labelClassName}>Phone</dt>
-                <dd className={`${valueClassName} flex items-center gap-2`}>
+                <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2`}>
                   <Phone className="h-4 w-4 text-primary" aria-hidden="true" />
                   {visit.patient.phone || "Not provided"}
                 </dd>
@@ -149,7 +161,7 @@ export default function OPDVisitDetailPage() {
               {visit.patient.email?.trim() ? (
                 <div>
                   <dt className={labelClassName}>Email</dt>
-                  <dd className={`${valueClassName} flex items-center gap-2 break-words`}>
+                  <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2 break-words`}>
                     <Mail className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />{visit.patient.email}
                   </dd>
                 </div>
@@ -163,7 +175,7 @@ export default function OPDVisitDetailPage() {
               {visit.patient.occupation?.trim() ? (
                 <div>
                   <dt className={labelClassName}>Occupation</dt>
-                  <dd className={`${valueClassName} flex items-center gap-2`}>
+                  <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2`}>
                     <BriefcaseBusiness className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />{visit.patient.occupation}
                   </dd>
                 </div>
@@ -176,21 +188,21 @@ export default function OPDVisitDetailPage() {
               ) : null}
               <div>
                 <dt className={labelClassName}>Ghana Card number</dt>
-                <dd className={`${valueClassName} flex items-center gap-2`}>
+                <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2`}>
                   <CreditCard className="h-4 w-4 text-primary" aria-hidden="true" />
                   {visit.patient.ghCardNumber?.trim() || "N/A"}
                 </dd>
               </div>
               <div>
                 <dt className={labelClassName}>NHIS number</dt>
-                <dd className={`${valueClassName} flex items-center gap-2`}>
+                <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2`}>
                   <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
                   {visit.patient.nhisNumber?.trim() || "N/A"}
                 </dd>
               </div>
               <div>
                 <dt className={labelClassName}>Area</dt>
-                <dd className={`${valueClassName} flex items-center gap-2`}>
+                <dd className={`${valueClassName} opd-visit-print-value flex items-center gap-2`}>
                   <MapPin className="h-4 w-4 text-primary" aria-hidden="true" />
                   {visit.patient.area || "Not provided"}
                 </dd>
@@ -204,7 +216,7 @@ export default function OPDVisitDetailPage() {
             </dl>
           </section>
 
-          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm print:shadow-none">
+          <section className="opd-visit-print-section opd-visit-print-remarks rounded-2xl border border-border bg-card p-6 shadow-sm">
             <h3 className="flex items-center gap-2 font-semibold text-foreground">
               <ClipboardList className="h-5 w-5 text-primary" aria-hidden="true" />
               Visit remarks
@@ -216,7 +228,7 @@ export default function OPDVisitDetailPage() {
             )}
           </section>
 
-          <section className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" aria-label="Patient registration date">
+          <section className="opd-visit-print-section flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" aria-label="Patient registration date">
             <p className="flex items-center gap-2 text-sm font-medium text-foreground">
               <CalendarPlus className="h-4 w-4 text-primary" aria-hidden="true" />
               Patient first registered

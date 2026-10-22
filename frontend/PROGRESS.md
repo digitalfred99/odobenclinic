@@ -98,6 +98,8 @@
 - Replaced the OPD visit ID placeholder with an API-backed visit detail view showing visit date, permanent patient OPD ID, new/returning classification, patient contact/location summary, registrant, and remarks.
 - Added links back to the visit list and to the linked patient record, plus print support and explicit loading/error states.
 - Validation: focused detail test passes, changed detail files are lint-clean, and production build passes. No backend files were changed.
+- Print follow-up: created a clinic-branded A4 portrait OPD visit document, hid page actions and loading/error controls when printing, tightened the details layout, and kept print sections together to fit a single page.
+- Validation: OPD detail test passes, full frontend lint, TypeScript check, and production build pass. Physical printer/browser output can still vary with unusually long remarks or printer settings. No backend files were changed.
 
 ## Patient detail visual alignment
 - Matched the patient detail screen to the OPD detail layout with the same card treatment, section hierarchy, and loading skeleton pattern.
@@ -351,3 +353,13 @@
 ## Missing-details note styling
 - Visually separated the patient clarification from missing-field items with a subtle muted background, inset padding, and italic muted text using theme tokens.
 - Validation: report-table tests (4), targeted ESLint, TypeScript check, and `git diff --check -- frontend` pass.
+
+## Printed report header color consistency
+- Made print table header cells explicitly use the primary theme background and foreground colors with print color adjustment, including sortable header text.
+- Added a print-flow regression assertion for the selected-field header styling.
+- Validation: report page tests (9), targeted ESLint, and `git diff --check -- frontend` pass.
+
+## Print report page-fit follow-up
+- The selected-field print table could exceed the landscape page width because columns had no fixed-layout wrapping rules; long headings and values could be clipped.
+- Constrained the print table to the printable width, enabled fixed layout and aggressive text wrapping, reduced print cell spacing/font size, and allowed rows to paginate naturally.
+- Validation: report page tests (9), targeted ESLint, TypeScript check, and `git diff --check -- frontend` pass.

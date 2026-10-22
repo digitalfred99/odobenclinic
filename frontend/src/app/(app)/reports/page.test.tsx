@@ -387,6 +387,9 @@ describe("report export field selection", () => {
 
     await waitFor(() => expect(print).toHaveBeenCalledOnce());
     const printTable = document.querySelector(".print\\:block table");
+    expect(printTable).toHaveClass("print-table");
+    const printHeader = printTable?.querySelector("thead th");
+    expect(printHeader).toHaveClass("bg-primary", "text-primary-foreground");
     expect(printTable?.textContent).toContain("OPD No.");
     expect(printTable?.textContent).not.toContain("Area");
     expect(printTable?.textContent).toContain("—");

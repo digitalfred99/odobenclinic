@@ -2,11 +2,11 @@ import { formatPatientDisplayId, formatReportDate, formatReportDateTime } from "
 import type { ReportRow } from "@/types/report";
 import { patientReligionLabel } from "@/types/patient";
 import { formatPatientName } from "@/lib/patient-name";
+import { FACILITY_NAME } from "@/lib/facility";
 import { WEEKDAYS, type Bucket, type Heatmap, type PyramidRow, type Quality, type Ranked, type Summary } from "./analytics";
 import type { RecordKind } from "./types";
 
-/** Change this to your facility's name. */
-export const FACILITY_NAME = "ODOBEN HEALTH CENTER";
+export { FACILITY_NAME } from "@/lib/facility";
 
 type RGB = [number, number, number];
 
