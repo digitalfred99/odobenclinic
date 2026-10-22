@@ -286,7 +286,7 @@ export default function DashboardPage() {
       */}
       <div
         ref={actionsRef}
-        className="pointer-events-none sticky top-[calc(var(--sticky-offset)_-_1px)] z-30 h-[calc(6.75rem+1px)] [--sticky-offset:var(--app-header-height,3.5rem)] lg:[--sticky-offset:0px] basis-full pt-px sm:h-[calc(3rem+1px)] lg:basis-auto lg:shrink-0"
+        className="dashboard-actions-sticky pointer-events-none sticky z-30 h-[calc(6.75rem+1px)] basis-full pt-px sm:h-[calc(3rem+1px)] lg:basis-auto lg:shrink-0"
       >
         <div
           className={cn(

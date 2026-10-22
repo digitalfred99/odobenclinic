@@ -64,6 +64,9 @@ describe("DashboardPage", () => {
       "href",
       "/opd-visits/register"
     );
+    const stickyActions = document.querySelector(".dashboard-actions-sticky");
+    expect(stickyActions).toBeInTheDocument();
+    expect(stickyActions?.className).not.toContain("top-[calc");
 
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/reports/patients?"), expect.anything());
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("newReturning=new"), expect.anything());

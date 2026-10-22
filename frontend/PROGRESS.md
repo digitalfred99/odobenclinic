@@ -106,6 +106,17 @@
 - Added a 56px avatar size, using the existing photo URL resolution and failed-image fallback behavior.
 - Validation: patient-search and avatar tests (10), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
 
+## Clinic favicon and social images
+- Replaced the starter favicon with a custom multi-size (16, 32, 48, and 256px) clinic heartbeat ICO and added a matching scalable SVG icon.
+- Added a 180×180 Apple touch icon and a 1200×630 branded Open Graph/Twitter image using the same heart mark.
+- Added `NEXT_PUBLIC_SITE_URL` metadata-base configuration and documented setting the production site origin.
+- Validation: production build generated all icon/social-image routes; full lint and TypeScript check pass.
+
+## Dashboard CSS compilation fix
+- Replaced the dashboard's Tailwind arbitrary `calc(var(--sticky-offset))` utilities with a named responsive CSS rule to avoid Tailwind generating a malformed escaped CSS selector in development.
+- Preserved the mobile header offset and desktop top offset for the sticky registration actions.
+- Validation: dashboard regression test, full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass; the running dev server returns HTTP 200 for `/patients` and `/dashboard`.
+
 ## Patient detail visual alignment
 - Matched the patient detail screen to the OPD detail layout with the same card treatment, section hierarchy, and loading skeleton pattern.
 - Grouped patient demographics and contact/location details while preserving existing edit, registration, and identifier behavior; added retry and back actions to the error state.
