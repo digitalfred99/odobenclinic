@@ -1,14 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api";
 import DashboardPage from "./page";
-
-const navigation = vi.hoisted(() => ({ push: vi.fn() }));
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => navigation,
-}));
 
 vi.mock("@/lib/api", () => ({
   apiRequest: vi.fn((path: string) => {
@@ -58,13 +52,18 @@ describe("DashboardPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("New patient records today").parentElement).toHaveTextContent("1");
+      const label = screen.getByText("New patient records");
+      expect(label.parentElement?.parentElement).toHaveTextContent("1");
     });
-    expect(screen.getByRole("list", { name: /daily opd visit counts/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Register new patient/ }));
-    expect(navigation.push).toHaveBeenCalledWith("/patients?register=new");
-    fireEvent.click(screen.getByRole("button", { name: /Register OPD visit/ }));
-    expect(navigation.push).toHaveBeenCalledWith("/opd-visits/register");
+    expect(await screen.findByRole("img", { name: /new and \d+ returning visits today/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Register new patient/ })).toHaveAttribute(
+      "href",
+      "/patients?register=new"
+    );
+    expect(screen.getByRole("link", { name: /Register OPD visit/ })).toHaveAttribute(
+      "href",
+      "/opd-visits/register"
+    );
 
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/reports/patients?"), expect.anything());
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("newReturning=new"), expect.anything());

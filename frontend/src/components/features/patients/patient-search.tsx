@@ -3,10 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Filter, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
+import { GHANA_REGIONS } from "@/lib/ghana-locations";
 import { formatPatientName } from "@/lib/patient-name";
+import { usePatientLocationCache } from "@/lib/patient-location-cache";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { cn } from "@/lib/utils";
 import { PATIENT_RELIGIONS, type Patient, type PatientListResponse } from "@/types/patient";
@@ -36,6 +38,8 @@ const emptyFilters: PatientFilters = {
   patientId: "",
 };
 
+const filterSelectClass = "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 function buildPatientQuery(searchTerm: string, filters: PatientFilters) {
   const params = new URLSearchParams();
   const search = searchTerm.trim();
@@ -62,12 +66,22 @@ function patientContactSummary(patient: Patient) {
     .join(" • ");
 }
 
+function uniqueOptions(values: (string | null | undefined)[], selected: string) {
+  const options = new Map<string, string>();
+  [...values, selected].forEach((value) => {
+    const normalized = value?.trim();
+    if (normalized) options.set(normalized.toLocaleLowerCase(), normalized);
+  });
+  return [...options.values()].sort((first, second) => first.localeCompare(second));
+}
+
 export function PatientSearchList({ className }: { className?: string }) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<PatientFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<PatientFilters>(emptyFilters);
+  const { locations: savedLocations } = usePatientLocationCache();
   const debouncedSearchTerm = useDebouncedValue(searchTerm);
   const queryString = buildPatientQuery(debouncedSearchTerm, appliedFilters);
   const activeFilterCount = Object.values(appliedFilters).filter((value) => value.trim()).length;
@@ -77,7 +91,48 @@ export function PatientSearchList({ className }: { className?: string }) {
     queryFn: ({ signal }) => apiRequest<PatientListResponse>(`/patients${queryString}`, { signal }),
   });
 
-  const patients = data?.patients ?? [];
+  const patients = useMemo(() => data?.patients ?? [], [data?.patients]);
+  const locationRecords = useMemo(
+    () => [...savedLocations, ...patients],
+    [savedLocations, patients]
+  );
+  const matchingLocations = useMemo(() => locationRecords.filter((location) =>
+    (!draftFilters.region || location.region?.trim().toLocaleLowerCase() === draftFilters.region.toLocaleLowerCase()) &&
+    (!draftFilters.district || location.district?.trim().toLocaleLowerCase() === draftFilters.district.toLocaleLowerCase()) &&
+    (!draftFilters.town || location.town?.trim().toLocaleLowerCase() === draftFilters.town.toLocaleLowerCase())
+  ), [locationRecords, draftFilters.region, draftFilters.district, draftFilters.town]);
+  const regionOptions = useMemo(() => uniqueOptions([
+    ...GHANA_REGIONS,
+    ...locationRecords.map((location) => location.region),
+  ], draftFilters.region), [locationRecords, draftFilters.region]);
+  const districtOptions = useMemo(() => uniqueOptions(
+    matchingLocations.map((location) => location.district),
+    draftFilters.district
+  ), [matchingLocations, draftFilters.district]);
+  const townOptions = useMemo(() => uniqueOptions(
+    matchingLocations.map((location) => location.town),
+    draftFilters.town
+  ), [matchingLocations, draftFilters.town]);
+  const areaOptions = useMemo(() => uniqueOptions(
+    matchingLocations.map((location) => location.area),
+    draftFilters.area
+  ), [matchingLocations, draftFilters.area]);
+  const locationFilterOptions = {
+    region: regionOptions,
+    district: districtOptions,
+    town: townOptions,
+    area: areaOptions,
+  };
+
+  const updateLocationFilter = (field: keyof typeof locationFilterOptions, value: string) => {
+    setDraftFilters((filters) => ({
+      ...filters,
+      [field]: value,
+      ...(field === "region" ? { district: "", town: "", area: "" } : {}),
+      ...(field === "district" ? { town: "", area: "" } : {}),
+      ...(field === "town" ? { area: "" } : {}),
+    }));
+  };
 
   const toggleFilters = () => {
     if (!filtersOpen) setDraftFilters(appliedFilters);
@@ -182,12 +237,15 @@ export function PatientSearchList({ className }: { className?: string }) {
             {(["region", "district", "town", "area"] as const).map((field) => (
               <div key={field} className="space-y-1.5">
                 <label htmlFor={`patient-filter-${field}`} className="text-sm font-medium capitalize text-foreground">{field}</label>
-                <Input
+                <select
                   id={`patient-filter-${field}`}
                   value={draftFilters[field]}
-                  onChange={(event) => setDraftFilters((filters) => ({ ...filters, [field]: event.target.value }))}
-                  placeholder={`Exact ${field} name`}
-                />
+                  onChange={(event) => updateLocationFilter(field, event.target.value)}
+                  className={filterSelectClass}
+                >
+                  <option value="">All {field === "area" ? "areas" : `${field}s`}</option>
+                  {locationFilterOptions[field].map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
               </div>
             ))}
 

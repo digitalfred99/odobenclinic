@@ -55,7 +55,14 @@ describe("patient identifier inputs", () => {
   });
 
   it("accepts empty identifiers and validates the exact requested formats", () => {
-    const baseValues = { firstName: "Ama", lastName: "Mensah", age: 30 };
+    const baseValues = {
+      firstName: "Ama",
+      lastName: "Mensah",
+      age: 30,
+      gender: "female",
+      maritalStatus: "single",
+      religion: "christianity",
+    };
 
     expect(patientFormSchema.safeParse({ ...baseValues, ghCardNumber: "", nhisNumber: "" }).success).toBe(true);
     expect(patientFormSchema.safeParse({ ...baseValues, ghCardNumber: "GHA-123456789-0", nhisNumber: "56738945" }).success).toBe(true);

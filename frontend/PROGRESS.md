@@ -323,3 +323,11 @@
 - Aligned the shared refresh control with the centered `max-w-6xl` content on the OPD visit list and registration pages; other pages retain the full content-column alignment.
 - Audited the dashboard’s separate refresh action and the reports refresh action; both remain aligned within their own content/card layouts.
 - Validation: refresh-control tests pass (4 tests), TypeScript and targeted ESLint pass, and desktop browser measurements at 1600px confirm the OPD list, OPD registration, and patient-list refresh rows align with their content edges.
+
+## Frontend quality and performance audit
+- Removed effect-driven duplicate state from dashboard date handling and OPD visit results. Dashboard summary data now uses a stable query key; OPD results retain the prior page through TanStack Query placeholder data.
+- Memoized patient-location option derivation and indexed report detail rows by date and patient ID to avoid repeated list scans while rendering.
+- Replaced hard-coded login-gradient and selection colors with shared theme tokens.
+- Updated stale test expectations and fixtures to match current required patient fields, accessible filter labels, dashboard links, and responsive report markup.
+- No backend changes were needed or made.
+- Validation: all 42 test files pass (187 tests), full ESLint, `tsc --noEmit`, production build, and `git diff --check -- frontend` pass. Vitest still emits its existing config-loader compatibility warning.

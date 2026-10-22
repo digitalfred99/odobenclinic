@@ -46,13 +46,17 @@ const formatCount = (value: number) => numberFormatter.format(value);
  * Until the backend sends it, the offset stays null and the device clock is used.
  */
 type DashboardResponse = DashboardSummary & { serverTime?: string };
-type DashboardData = DashboardResponse & { clockOffsetMs: number | null };
+type DashboardData = DashboardResponse & { clockOffsetMs: number | null; clinicDate: string };
 
 async function fetchDashboard(signal?: AbortSignal): Promise<DashboardData> {
   const response = await apiRequest<DashboardResponse>("/dashboard", { signal });
   const receivedAt = Date.now();
   const serverMs = response.serverTime ? Date.parse(response.serverTime) : Number.NaN;
-  return { ...response, clockOffsetMs: Number.isNaN(serverMs) ? null : serverMs - receivedAt };
+  return {
+    ...response,
+    clockOffsetMs: Number.isNaN(serverMs) ? null : serverMs - receivedAt,
+    clinicDate: clinicDateFormatter.format(Number.isNaN(serverMs) ? receivedAt : serverMs),
+  };
 }
 
 async function fetchAllReportRows(endpoint: string, params: URLSearchParams, signal?: AbortSignal): Promise<ReportRow[]> {
@@ -110,24 +114,6 @@ function describeChange(today: number, yesterday: number) {
   const difference = Math.abs(today - yesterday);
   if (difference === 0) return `Same as yesterday (${formatCount(yesterday)})`;
   return `${formatCount(difference)} ${today > yesterday ? "more" : "fewer"} than yesterday (${formatCount(yesterday)})`;
-}
-
-/** Keeps "today" correct across midnight and across a wrong device clock. */
-function useClinicToday(clockOffsetMs: number) {
-  const [today, setToday] = useState(() => clinicDateFormatter.format(Date.now()));
-
-  useEffect(() => {
-    const sync = () => setToday(clinicDateFormatter.format(Date.now() + clockOffsetMs));
-    sync();
-    const id = window.setInterval(sync, 30_000);
-    document.addEventListener("visibilitychange", sync);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", sync);
-    };
-  }, [clockOffsetMs]);
-
-  return today;
 }
 
 /**
@@ -208,13 +194,7 @@ function LedgerRow({ label, hint, value, loading, unavailable, onRetry }: Ledger
 }
 
 export default function DashboardPage() {
-  const [clockOffsetMs, setClockOffsetMs] = useState(0);
   const { ref: actionsRef, stuck } = useIsStuck<HTMLDivElement>();
-  const today = useClinicToday(clockOffsetMs);
-  const todayDate = useMemo(() => parseISO(today), [today]);
-  const weekStart = format(subDays(todayDate, 6), "yyyy-MM-dd");
-  const yesterday = format(subDays(todayDate, 1), "yyyy-MM-dd");
-
   const {
     data,
     isLoading,
@@ -223,16 +203,18 @@ export default function DashboardPage() {
     refetch,
     dataUpdatedAt,
   } = useQuery({
-    queryKey: ["dashboard-overview", today],
+    queryKey: ["dashboard-overview"],
     queryFn: ({ signal }) => fetchDashboard(signal),
     refetchInterval: LIVE_REFETCH_MS,
     refetchIntervalInBackground: false,
   });
 
-  // Store the offset in state so it survives cache hits and key changes.
-  useEffect(() => {
-    if (typeof data?.clockOffsetMs === "number") setClockOffsetMs(data.clockOffsetMs);
-  }, [data?.clockOffsetMs]);
+  const clockOffsetMs = data?.clockOffsetMs ?? 0;
+  const [fallbackToday] = useState(() => clinicDateFormatter.format(Date.now()));
+  const today = data?.clinicDate ?? fallbackToday;
+  const todayDate = useMemo(() => parseISO(today), [today]);
+  const weekStart = format(subDays(todayDate, 6), "yyyy-MM-dd");
+  const yesterday = format(subDays(todayDate, 1), "yyyy-MM-dd");
 
   const {
     data: newPatientsToday,

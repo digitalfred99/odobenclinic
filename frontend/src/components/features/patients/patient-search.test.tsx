@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api";
 import { PatientSearchList } from "./patient-search";
 
@@ -25,6 +25,10 @@ function renderPatientSearch() {
 }
 
 describe("PatientSearchList filters", () => {
+  beforeEach(() => {
+    vi.mocked(apiRequest).mockReset().mockResolvedValue({ patients: [] });
+  });
+
   it("shows patient-card skeletons while results are loading", () => {
     vi.mocked(apiRequest).mockReturnValue(new Promise(() => {}));
     renderPatientSearch();
@@ -34,7 +38,19 @@ describe("PatientSearchList filters", () => {
   });
 
   it("opens filter controls and applies only supported patient-list filters", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      patients: [{
+        id: "patient-1",
+        firstName: "Ama",
+        lastName: "Mensah",
+        region: "Greater Accra",
+        district: "Accra Metro",
+        town: "Accra",
+        area: "Osu",
+      }],
+    });
     renderPatientSearch();
+    await screen.findByText("Ama Mensah");
 
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByRole("form", { name: "Filter patients" })).toBeInTheDocument();
@@ -42,7 +58,7 @@ describe("PatientSearchList filters", () => {
     fireEvent.change(screen.getByLabelText("Gender"), { target: { value: "female" } });
     fireEvent.change(screen.getByLabelText("Marital status"), { target: { value: "married" } });
     fireEvent.change(screen.getByLabelText("Religion"), { target: { value: "traditional" } });
-    fireEvent.change(screen.getByLabelText("region"), { target: { value: " Greater Accra " } });
+    fireEvent.change(screen.getByLabelText("region"), { target: { value: "Greater Accra" } });
     fireEvent.change(screen.getByLabelText("Patient ID (OPD No.)"), { target: { value: "PT-12/2026" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
 
@@ -56,8 +72,64 @@ describe("PatientSearchList filters", () => {
     expect(screen.getByRole("button", { name: "Filters (5)" })).toBeInTheDocument();
   });
 
-  it("clears active filters and reloads the unfiltered list", async () => {
+  it("offers location dropdowns from known patient locations and narrows them in order", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      patients: [
+        {
+          id: "patient-1",
+          firstName: "Ama",
+          lastName: "Mensah",
+          region: "Greater Accra",
+          district: "Accra Metro",
+          town: "Accra",
+          area: "Osu",
+        },
+        {
+          id: "patient-2",
+          firstName: "Kojo",
+          lastName: "Owusu",
+          region: "Central Region",
+          district: "Cape Coast Metropolitan",
+          town: "Cape Coast",
+          area: "Abura",
+        },
+      ],
+    });
+
     renderPatientSearch();
+    await screen.findByText("Ama Mensah");
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+
+    const region = screen.getByLabelText("region");
+    const district = screen.getByLabelText("district");
+    const town = screen.getByLabelText("town");
+    const area = screen.getByLabelText("area");
+    expect(region.tagName).toBe("SELECT");
+    expect(district.tagName).toBe("SELECT");
+    expect(town.tagName).toBe("SELECT");
+    expect(area.tagName).toBe("SELECT");
+    expect(region.querySelector('option[value="Greater Accra"]')).toBeInTheDocument();
+    expect(region.querySelector('option[value="Greater Accra Region"]')).toBeInTheDocument();
+
+    fireEvent.change(region, { target: { value: "Greater Accra" } });
+    expect(district.querySelector('option[value="Accra Metro"]')).toBeInTheDocument();
+    expect(district.querySelector('option[value="Cape Coast Metropolitan"]')).not.toBeInTheDocument();
+
+    fireEvent.change(district, { target: { value: "Accra Metro" } });
+    expect(town.querySelector('option[value="Accra"]')).toBeInTheDocument();
+    expect(town.querySelector('option[value="Cape Coast"]')).not.toBeInTheDocument();
+
+    fireEvent.change(town, { target: { value: "Accra" } });
+    expect(area.querySelector('option[value="Osu"]')).toBeInTheDocument();
+    expect(area.querySelector('option[value="Abura"]')).not.toBeInTheDocument();
+  });
+
+  it("clears active filters and reloads the unfiltered list", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      patients: [{ id: "patient-1", firstName: "Ama", lastName: "Mensah", region: "Greater Accra", district: "Accra Metro", town: "Accra", area: "Osu" }],
+    });
+    renderPatientSearch();
+    await screen.findByText("Ama Mensah");
 
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     fireEvent.change(screen.getByLabelText("area"), { target: { value: "Osu" } });

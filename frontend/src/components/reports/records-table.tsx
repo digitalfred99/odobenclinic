@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiRequest } from "@/lib/api";
@@ -20,6 +21,163 @@ type Rec = VisitRecord | PatientRecord;
 type SortKey = "date" | "pid" | "age" | "sex" | "area";
 
 const selectClass = "h-11 rounded-md border border-border bg-background px-3 text-sm";
+
+function RecordChecks({ message, missing }: { message: string | null; missing: string[] }) {
+  if (missing.length === 0 || !message?.startsWith("Missing")) {
+    return <span>{message}</span>;
+  }
+
+  return (
+    <details className="group min-w-40">
+      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-left text-sm text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="block font-medium">{missing.length} Missing details</span>
+          <span className="block text-xs text-muted-foreground">View missing items</span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+      </summary>
+      <ul className="mt-2 space-y-1.5 rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">
+        {missing.map((item) => <li key={item}>Missing {item}</li>)}
+      </ul>
+    </details>
+  );
+}
+
+function DesktopRecordChecks({ patientId, message, missing }: {
+  patientId: string;
+  message: string | null;
+  missing: string[];
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [tooltipHovered, setTooltipHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailsId = `record-checks-${patientId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const open = hovered || tooltipHovered || focused || pinned;
+
+  useEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const dismissOnOutsidePointer = (event: PointerEvent) => {
+      if (triggerRef.current?.contains(event.target as Node)) return;
+      setPinned(false);
+      setFocused(false);
+      setHovered(false);
+      setTooltipHovered(false);
+    };
+
+    document.addEventListener("pointerdown", dismissOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", dismissOnOutsidePointer);
+  }, [open]);
+
+  if (missing.length === 0 || !message?.startsWith("Missing")) {
+    return <span>{message}</span>;
+  }
+
+  const updatePosition = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const tooltipHeight = Math.min(missing.length * 28 + 24, 200);
+    const top = rect.bottom + tooltipHeight + 12 <= window.innerHeight
+      ? rect.bottom + 8
+      : Math.max(8, rect.top - tooltipHeight - 8);
+    setPosition({
+      left: Math.min(rect.left, window.innerWidth - 240),
+      top,
+    });
+  };
+  const cancelScheduledClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelScheduledClose();
+    closeTimerRef.current = setTimeout(() => {
+      setHovered(false);
+      setTooltipHovered(false);
+    }, 120);
+  };
+  const openFromHover = () => {
+    cancelScheduledClose();
+    updatePosition();
+    setHovered(true);
+  };
+  const closePinned = () => {
+    setPinned(false);
+    setFocused(false);
+    setHovered(false);
+    setTooltipHovered(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={`${missing.length} missing details. Show missing items.`}
+        aria-controls={detailsId}
+        aria-expanded={open}
+        aria-describedby={open ? detailsId : undefined}
+        onMouseEnter={openFromHover}
+        onMouseLeave={scheduleClose}
+        onFocus={() => {
+          updatePosition();
+          setFocused(true);
+        }}
+        onBlur={() => setFocused(false)}
+        onClick={() => {
+          if (pinned) {
+            closePinned();
+          } else {
+            updatePosition();
+            setPinned(true);
+            setHovered(false);
+            setTooltipHovered(false);
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") closePinned();
+        }}
+        className="relative inline-flex min-h-10 items-center rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 pr-4 text-left text-sm text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="font-medium">{missing.length} Missing details</span>
+        <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-card bg-primary text-[10px] font-bold leading-none text-primary-foreground">¡</span>
+      </button>
+      {open && position ? createPortal(
+        <ul
+          id={detailsId}
+          role="tooltip"
+          onMouseEnter={() => {
+            cancelScheduledClose();
+            setTooltipHovered(true);
+          }}
+          onMouseLeave={() => {
+            setTooltipHovered(false);
+            if (!pinned && !focused) scheduleClose();
+          }}
+          className="fixed z-[200] min-w-52 space-y-1.5 rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
+          style={{
+            left: `${Math.max(8, position.left)}px`,
+            top: `${position.top}px`,
+            maxWidth: "min(20rem, calc(100vw - 1rem))",
+          }}
+        >
+          {missing.map((item) => <li key={item}>Missing {item}</li>)}
+        </ul>,
+        document.body
+      ) : null}
+    </>
+  );
+}
 
 function SortableHeader({ id, label, sortKey, dir, onSort }: {
   id: SortKey;
@@ -124,7 +282,16 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
 
   const detailRows = useMemo(() => {
     const reportUsage = new Map<string, number>();
+    const reportRowsByPatient = new Map<string, ReportRow[]>();
     const visitQueues = new Map<string, OPDVisit[]>();
+    details?.forEach((rows, date) => {
+      rows.forEach((row) => {
+        const key = `${date}|${row.patientId}`;
+        const existing = reportRowsByPatient.get(key);
+        if (existing) existing.push(row);
+        else reportRowsByPatient.set(key, [row]);
+      });
+    });
     visitDetails.forEach((visit) => {
       const patientId = visit.patient?.patientId;
       if (!patientId) return;
@@ -137,7 +304,7 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
       const key = `${r.date}|${r.pid}`;
       const n = reportUsage.get(key) ?? 0;
       reportUsage.set(key, n + 1);
-      const candidates = (details?.get(r.date) ?? []).filter((x) => x.patientId === r.pid);
+      const candidates = reportRowsByPatient.get(key) ?? [];
       const reportRow = candidates[n] ?? candidates[0] ?? null;
       if (kind !== "visits" || !reportRow) return reportRow;
       const visitKey = `${r.pid}|${r.date}|${"type" in r ? r.type : ""}`;
@@ -195,6 +362,19 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
       : missingKey ? `Missing ${missingKey === "ghCard" ? "Ghana Card" : missingKey === "nhis" ? "NHIS number" : missingKey === "dob" ? "date of birth" : missingKey === "phone" ? "phone number" : "area"}`
         : missing.length ? `Missing: ${missing.join(", ")}` : "No missing details in these checks";
     return checks;
+  };
+  const missingDetails = (detail: ReportRow | null) => {
+    if (kind !== "patients" || !detail || missingKey === "duplicate") return [];
+    const details = [
+      ["phone", "phone number", !detail.phone?.trim()],
+      ["dob", "date of birth", !detail.dateOfBirth?.trim()],
+      ["ghCard", "Ghana Card", !detail.ghCardNumber?.trim()],
+      ["nhis", "NHIS number", !detail.nhisNumber?.trim()],
+      ["area", "area", !detail.area?.trim()],
+    ] as const;
+    return details
+      .filter(([key, , isMissing]) => isMissing && (!missingKey || key === missingKey))
+      .map(([, label]) => label);
   };
 
   return (
@@ -295,7 +475,15 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                         <td className="px-3 py-3 tabular-nums">{Math.max(1, visitCounts.get(r.pid) ?? 0)}</td>
                       </>
                     ) : null}
-                    {kind === "patients" ? <td className="max-w-72 px-3 py-3 text-muted-foreground">{dataChecks(r, detailRows[i])}</td> : null}
+                    {kind === "patients" ? (
+                      <td className="max-w-72 px-3 py-3 text-muted-foreground">
+                        <DesktopRecordChecks
+                          patientId={r.pid}
+                          message={dataChecks(r, detailRows[i])}
+                          missing={missingDetails(detailRows[i])}
+                        />
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -386,7 +574,9 @@ export function RecordsTable({ kind, records, missingKey = "", duplicateGroups =
                 {kind === "patients" ? (
                   <div className="border-t border-border px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Record checks</p>
-                    <p className="mt-1 break-words text-sm text-foreground">{dataChecks(r, detailRows[i])}</p>
+                    <div className="mt-2 break-words text-sm text-foreground">
+                      <RecordChecks message={dataChecks(r, detailRows[i])} missing={missingDetails(detailRows[i])} />
+                    </div>
                   </div>
                 ) : null}
               </li>

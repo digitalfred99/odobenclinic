@@ -38,10 +38,10 @@ describe("OPD visit list filters", () => {
   it("applies supported visit-date preset and free-text search parameters", async () => {
     renderVisitList();
 
-    fireEvent.change(screen.getByRole("textbox", { name: /search opd visits/i }), {
+    fireEvent.change(screen.getByRole("textbox", { name: /search visits/i }), {
       target: { value: "PT-12/2026" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     fireEvent.change(screen.getByLabelText("Visit date"), { target: { value: "thisMonth" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
 
@@ -51,7 +51,7 @@ describe("OPD visit list filters", () => {
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
-    expect(screen.getByRole("button", { name: "Filters (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter (1)" })).toBeInTheDocument();
   });
 
   it("shows the shortened OPD number and town, and opens the visit form", async () => {

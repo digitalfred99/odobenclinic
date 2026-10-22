@@ -67,7 +67,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(27,94,92,0.18),_transparent_40%),linear-gradient(to_bottom,_#f9fbf9,_#eef6f3)] px-4 py-8">
+    <main className="login-background flex min-h-screen items-center justify-center px-4 py-8">
       <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-sm sm:p-8">
         <div className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Odoben Health Center</p>

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api";
 import { clearDetailsCache } from "@/lib/reports/loader";
@@ -80,9 +80,53 @@ describe("patient report records", () => {
   });
 
   it("searches by patient name and shows actionable missing-field details", async () => {
-    renderTable();
+    const view = renderTable();
     expect(await screen.findAllByText("No missing details in these checks")).not.toHaveLength(0);
-    expect(await screen.findAllByText("Missing: phone number, date of birth, Ghana Card, NHIS number, area")).not.toHaveLength(0);
+    expect(await screen.findAllByText("5 Missing details")).toHaveLength(2);
+    const disclosures = [...view.container.querySelectorAll("details")];
+    expect(disclosures).toHaveLength(1);
+    expect(disclosures.every((disclosure) => !disclosure.open)).toBe(true);
+
+    const [expandedDisclosure] = disclosures;
+    if (!expandedDisclosure) throw new Error("Expected a record-check disclosure.");
+    fireEvent.click(expandedDisclosure.querySelector("summary")!);
+    expect(within(expandedDisclosure).getByText(/phone number/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/date of birth/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/Ghana Card/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/NHIS number/)).toBeInTheDocument();
+    expect(within(expandedDisclosure).getByText(/area/)).toBeInTheDocument();
+
+    const desktopCheck = screen.getByRole("button", {
+      name: "5 missing details. Show missing items.",
+    });
+    expect(desktopCheck.querySelector("span[aria-hidden='true']")).toHaveTextContent("¡");
+    expect(desktopCheck.querySelector("span[aria-hidden='true']")).toHaveClass("absolute", "-right-1.5", "-top-1.5");
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "false");
+    fireEvent.mouseEnter(desktopCheck);
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "true");
+    const desktopTooltip = screen.getByRole("tooltip");
+    expect(desktopTooltip).toHaveTextContent("Missing phone number");
+    expect(desktopTooltip.parentElement).toBe(document.body);
+    expect(desktopTooltip).toHaveClass("fixed", "z-[200]");
+    fireEvent.mouseEnter(desktopTooltip);
+    fireEvent.mouseLeave(desktopCheck);
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "true");
+    fireEvent.mouseLeave(desktopTooltip);
+    await waitFor(() => expect(desktopCheck).toHaveAttribute("aria-expanded", "false"));
+
+    fireEvent.click(desktopCheck);
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "true");
+    fireEvent.mouseLeave(desktopCheck);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    fireEvent.click(desktopCheck);
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+
+    fireEvent.click(desktopCheck);
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "true");
+    fireEvent.pointerDown(document.body);
+    expect(desktopCheck).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     const patientCard = screen.getAllByText("Additional patient details")[0].closest("li");
     expect(patientCard).not.toBeNull();

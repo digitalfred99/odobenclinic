@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
 import { CalendarDays, Filter, Loader2, MapPin, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -41,8 +41,6 @@ export default function OPDVisitList() {
   const [appliedRange, setAppliedRange] = useState<VisitDateRange>(EMPTY_RANGE);
   const [page, setPage] = useState(1);
   const [filterError, setFilterError] = useState<string | null>(null);
-  const [lastData, setLastData] = useState<OPDVisitListResponse | undefined>(undefined);
-
   const searchRef = useRef<HTMLInputElement>(null);
   const listTopRef = useRef<HTMLDivElement>(null);
 
@@ -53,18 +51,14 @@ export default function OPDVisitList() {
   const hasDateFilter = Boolean(appliedRange.dateFrom || appliedRange.dateTo);
   const hasAnyFilter = hasDateFilter || Boolean(trimmedSearch);
 
-  const { data, isLoading, isFetching, isError, refetch } = useQuery({
+  const { data, isLoading, isFetching, isPlaceholderData, isError, refetch } = useQuery({
     queryKey: ["opd-visits", query],
     queryFn: ({ signal }) => apiRequest<OPDVisitListResponse>(`/opd-visits?${query}`, { signal }),
+    placeholderData: keepPreviousData,
   });
 
-  /* Keep the previous results on screen while a new search loads, so the list does not flash. */
-  useEffect(() => {
-    if (data) setLastData(data);
-  }, [data]);
-
-  const shown = data ?? lastData;
-  const isRefreshing = !data && Boolean(lastData) && (isFetching || isSettling);
+  const shown = data;
+  const isRefreshing = Boolean(shown) && (isPlaceholderData || (isFetching && isSettling));
   const visits = shown?.opdVisits ?? [];
   const pagination = shown?.pagination;
   const totalPages = pagination?.totalPages ?? 1;

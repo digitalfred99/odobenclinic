@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api";
 import ReportsPage from "./page";
@@ -259,11 +259,12 @@ describe("report export field selection", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "OPD visits" }));
 
-    expect(await screen.findByText("Review blood pressure next week.")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Visit remarks" })).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(await within(table).findByText("Review blood pressure next week.")).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Visit remarks" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Visit recorded at" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Visits in report period" })).toBeInTheDocument();
-    expect(screen.getByText("4 Oct 2026, 8:30 AM")).toBeInTheDocument();
+    expect(within(table).getByText("4 Oct 2026, 8:30 AM")).toBeInTheDocument();
     expect(screen.getAllByRole("cell").map((cell) => cell.textContent?.trim())).toContain("1");
     expect(screen.getByText("12/2026", { selector: "td" })).toBeInTheDocument();
   });
