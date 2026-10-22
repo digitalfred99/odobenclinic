@@ -101,6 +101,11 @@
 - Print follow-up: created a clinic-branded A4 portrait OPD visit document, hid page actions and loading/error controls when printing, tightened the details layout, and kept print sections together to fit a single page.
 - Validation: OPD detail test passes, full frontend lint, TypeScript check, and production build pass. Physical printer/browser output can still vary with unusually long remarks or printer settings. No backend files were changed.
 
+## Patient list photo display
+- Added patient avatars to search-result cards, positioned at the top-right on mobile and before patient details on larger screens.
+- Added a 56px avatar size, using the existing photo URL resolution and failed-image fallback behavior.
+- Validation: patient-search and avatar tests (10), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
+
 ## Patient detail visual alignment
 - Matched the patient detail screen to the OPD detail layout with the same card treatment, section hierarchy, and loading skeleton pattern.
 - Grouped patient demographics and contact/location details while preserving existing edit, registration, and identifier behavior; added retry and back actions to the error state.

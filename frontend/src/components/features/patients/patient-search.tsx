@@ -11,6 +11,7 @@ import { formatPatientName } from "@/lib/patient-name";
 import { usePatientLocationCache } from "@/lib/patient-location-cache";
 import { formatPatientDisplayId } from "@/lib/reporting";
 import { cn } from "@/lib/utils";
+import { PatientAvatar } from "@/components/features/opd/patient-avatar";
 import { PATIENT_RELIGIONS, type Patient, type PatientListResponse } from "@/types/patient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -295,26 +296,31 @@ export function PatientSearchList({ className }: { className?: string }) {
 
       <div className="space-y-3">
         {patients.map((patient) => (
-          <div key={patient.id} className="flex flex-col gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="font-medium text-foreground">{formatPatientName(patient)}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {[
-                  `OPD No. ${patient.patientId ? formatPatientDisplayId(patient.patientId) : "unavailable"}`,
-                  patient.district,
-                  patient.town,
-                  patient.area,
-                  patient.postalAddress,
-                ]
-                  .map((value) => value?.trim())
-                  .filter((value): value is string => Boolean(value))
-                  .join(" • ")}
-              </p>
-              {patientContactSummary(patient) ? (
-                <p className="mt-1 break-words text-sm text-muted-foreground">
-                  {patientContactSummary(patient)}
+          <div key={patient.id} className="relative flex flex-col gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="absolute right-4 top-4 sm:static sm:shrink-0">
+                <PatientAvatar patient={patient} size="large" />
+              </div>
+              <div className="min-w-0 pr-16 sm:pr-0">
+                <p className="font-medium text-foreground">{formatPatientName(patient)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {[
+                    `OPD No. ${patient.patientId ? formatPatientDisplayId(patient.patientId) : "unavailable"}`,
+                    patient.district,
+                    patient.town,
+                    patient.area,
+                    patient.postalAddress,
+                  ]
+                    .map((value) => value?.trim())
+                    .filter((value): value is string => Boolean(value))
+                    .join(" • ")}
                 </p>
-              ) : null}
+                {patientContactSummary(patient) ? (
+                  <p className="mt-1 break-words text-sm text-muted-foreground">
+                    {patientContactSummary(patient)}
+                  </p>
+                ) : null}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <Button type="button" variant="secondary" size="sm" onClick={() => router.push(`/patients/${patient.id}`)}>
