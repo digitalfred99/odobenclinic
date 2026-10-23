@@ -27,7 +27,7 @@ export interface ImageFileInput {
   fieldName: string; // e.g. "profileImage", "coverImage"
   buffer: Buffer;
   originalName: string;
-  /** Omit to keep current behaviour (no processing). */
+  /** Omit to only validate the image (no resize or re-encode unless it needs rotating). */
   compress?: ImageCompressionOptions;
 }
 
@@ -134,7 +134,8 @@ export async function processImage(
   const isTargetMet = (size: number) => o.targetBytes === undefined || size <= o.targetBytes;
   const passthrough = (): ProcessedImage => ({
     buffer: input.buffer,
-    fileName: input.originalName,
+    // Extension comes from the detected format, never from the client's file name.
+    fileName: replaceExtension(input.originalName, FORMAT_EXTENSION[inFormat]),
     format: inFormat,
     width: meta.width,
     height: meta.height,
@@ -250,11 +251,8 @@ export async function createWithImages<T>(
     if (img.buffer.length > maxBytes) {
       throw new ImageProcessingError("FILE_TOO_LARGE", `${img.fieldName}: exceeds ${maxBytes} bytes.`);
     }
-    if (!img.compress) {
-      prepared.push({ fieldName: img.fieldName, buffer: img.buffer, fileName: img.originalName });
-      continue;
-    }
-    const compress = img.compress;
+    // Always validate with sharp, even without compression options.
+    const compress = img.compress ?? {};
     const result = await withConcurrencyLimit(() => processImage(img, compress));
     if (!result.targetMet) {
       console.warn(`[images] ${img.fieldName}: target size not met (${result.buffer.length} bytes).`);
