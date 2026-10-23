@@ -21,7 +21,8 @@ export class LocalDiskStorageAdapter implements ImageStorageAdapter {
 
   async delete(storedUrl: string): Promise<void> {
     const relative = storedUrl.replace(PUBLIC_BASE_URL, "");
-    const fullPath = path.join(UPLOAD_ROOT, relative);
+    const fullPath = path.resolve(UPLOAD_ROOT, relative.replace(/^\/+/, ""));
+    if (!fullPath.startsWith(UPLOAD_ROOT + path.sep)) return; // never delete outside the uploads folder
 
     try {
       await fs.unlink(fullPath);
