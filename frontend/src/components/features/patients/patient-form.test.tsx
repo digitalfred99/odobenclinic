@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { toLocalInputDate } from "@/lib/dates";
 
@@ -9,6 +9,53 @@ vi.mock("next/dynamic", () => ({
 import { PatientForm } from "./patient-form";
 
 describe("PatientForm defaults and guidance", () => {
+  it("keeps native fields tappable after a validation error on iOS", async () => {
+    render(
+      <PatientForm
+        onSubmit={vi.fn()}
+        initialValues={{
+          firstName: "Ama",
+          lastName: "Mensah",
+          age: 36,
+          gender: "",
+          maritalStatus: "single",
+          religion: "christianity",
+        }}
+      />
+    );
+
+    const gender = screen.getByLabelText(/^Gender/);
+    const focus = vi.spyOn(gender, "focus");
+    fireEvent.click(screen.getByRole("button", { name: "Save patient" }));
+
+    expect(await screen.findByText("Gender is required")).toBeInTheDocument();
+    expect(focus).not.toHaveBeenCalled();
+
+    fireEvent.change(gender, { target: { value: "female" } });
+    expect(gender).toHaveValue("female");
+  });
+
+  it("scrolls to the first invalid field without focusing it", async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    render(<PatientForm onSubmit={vi.fn()} />);
+
+    const firstName = screen.getByLabelText(/^First name/);
+    const scrollIntoView = vi.fn();
+    firstName.scrollIntoView = scrollIntoView;
+    const focus = vi.spyOn(firstName, "focus");
+    fireEvent.click(screen.getByRole("button", { name: "Save patient" }));
+
+    expect(await screen.findByText("First name is required")).toBeInTheDocument();
+    act(() => frames.forEach((callback) => callback(0)));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+    expect(focus).not.toHaveBeenCalled();
+  });
+
   it("defaults new patients to Central Region, Asikuma-Odoben-Brakwa, and Odoben", () => {
     render(<PatientForm onSubmit={vi.fn()} />);
 

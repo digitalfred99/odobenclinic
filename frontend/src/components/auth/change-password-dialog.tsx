@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -14,6 +14,7 @@ import {
   PASSWORD_STRENGTH_MESSAGE,
 } from "@/lib/password";
 import { setSignInNotice } from "@/lib/session";
+import { scheduleScrollToFirstInvalidField } from "@/lib/scroll-to-first-invalid-field";
 
 type ChangePasswordDialogProps = {
   open: boolean;
@@ -43,6 +44,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
   const [formError, setFormError] = useState<string | null>(null);
   const [visibleFields, setVisibleFields] = useState<Partial<Record<PasswordFields, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const clearForm = () => {
     setValues(EMPTY_VALUES);
@@ -92,6 +94,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      scheduleScrollToFirstInvalidField(formRef.current);
       return;
     }
 
@@ -106,10 +109,13 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
     } catch (error) {
       if (error instanceof ApiError && error.code === "invalid_current_password") {
         setErrors({ currentPassword: error.message });
+        scheduleScrollToFirstInvalidField(formRef.current);
       } else if (error instanceof ApiError && error.code === "same_password") {
         setErrors({ newPassword: error.message });
+        scheduleScrollToFirstInvalidField(formRef.current);
       } else if (error instanceof Error && /password/i.test(error.message)) {
         setErrors({ newPassword: error.message });
+        scheduleScrollToFirstInvalidField(formRef.current);
       } else if (error instanceof ApiError && error.status === 429) {
         setFormError("Too many attempts, please try again later");
       } else {
@@ -130,7 +136,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
             Choose a new password to secure your account. You will need to sign in again on all devices.
           </Dialog.Description>
 
-          <form onSubmit={(event) => void handleSubmit(event)} className="mt-5 space-y-4">
+          <form ref={formRef} onSubmit={(event) => void handleSubmit(event)} className="mt-5 space-y-4">
             {(["currentPassword", "newPassword", "confirmPassword"] as const).map((field) => {
               const visible = Boolean(visibleFields[field]);
               const inputId = `change-password-${field}`;

@@ -389,3 +389,15 @@
 - The selected-field print table could exceed the landscape page width because columns had no fixed-layout wrapping rules; long headings and values could be clipped.
 - Constrained the print table to the printable width, enabled fixed layout and aggressive text wrapping, reduced print cell spacing/font size, and allowed rows to paginate naturally.
 - Validation: report page tests (9), targeted ESLint, TypeScript check, and `git diff --check -- frontend` pass.
+
+## Patient form iOS validation and button feedback
+- Disabled automatic focus on invalid patient-form fields so iOS does not leave native selects focused without opening their picker; inline validation remains visible and fields can be selected normally.
+- Added a subtle press scale to shared buttons with reduced-motion support.
+- Added regression tests for the gender validation flow and button press styling.
+- Validation: patient-form and button tests (18), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
+
+## First-invalid-field scrolling
+- Added a shared helper to smoothly scroll the first invalid visible form control to the center of the viewport without moving focus; reduced-motion preferences use immediate scrolling.
+- Applied it to patient validation (including server field errors), login, user/profile validation, and password-change validation. Missing OPD patient selection scrolls back to the patient search field.
+- Added regression coverage for first-field ordering, reduced motion, explicit target scrolling, and the patient form's no-focus scroll behavior.
+- Validation: focused form suite (44 tests), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
