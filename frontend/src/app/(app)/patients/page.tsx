@@ -247,7 +247,7 @@ function PatientsPageContent() {
 
       cachePatientLocation(patient);
       queryClient.setQueryData<PatientListResponse>(
-        ["patients", ""],
+        ["patients", "?page=1&limit=20"],
         (current) => prependPatientToList(current, patient)
       );
       void queryClient.invalidateQueries({ queryKey: ["patients"] });

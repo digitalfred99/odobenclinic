@@ -83,32 +83,32 @@ export default function AuditLogsPage() {
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Action</label>
-            <select value={action} onChange={(event) => setAction(event.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+            <label htmlFor="audit-action" className="text-sm font-medium text-foreground">Action</label>
+            <select id="audit-action" value={action} onChange={(event) => setAction(event.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
               <option value="">All</option>
               {ACTIONS.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Entity</label>
-            <select value={entityType} onChange={(event) => setEntityType(event.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+            <label htmlFor="audit-entity" className="text-sm font-medium text-foreground">Entity</label>
+            <select id="audit-entity" value={entityType} onChange={(event) => setEntityType(event.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
               <option value="">All</option>
               {ENTITY_TYPES.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">From</label>
-            <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+            <label htmlFor="audit-from" className="text-sm font-medium text-foreground">From</label>
+            <Input id="audit-from" type="date" max={to || undefined} value={from} onChange={(event) => setFrom(event.target.value)} />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">To</label>
-            <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+            <label htmlFor="audit-to" className="text-sm font-medium text-foreground">To</label>
+            <Input id="audit-to" type="date" min={from || undefined} value={to} onChange={(event) => setTo(event.target.value)} />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Actor ID</label>
+            <label htmlFor="audit-actor-id" className="text-sm font-medium text-foreground">Actor ID</label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input value={actorId} onChange={(event) => setActorId(event.target.value)} className="pl-9" placeholder="UUID" />
+              <Input id="audit-actor-id" value={actorId} onChange={(event) => setActorId(event.target.value)} className="pl-9" placeholder="UUID" />
             </div>
           </div>
         </div>

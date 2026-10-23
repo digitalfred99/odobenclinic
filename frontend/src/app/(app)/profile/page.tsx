@@ -86,12 +86,22 @@ export default function ProfilePage() {
 
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">First name</label>
-            <Input value={formState.firstName} onChange={(event) => setFormState((current) => ({ ...current, firstName: event.target.value }))} />
+            <label htmlFor="profile-first-name" className="text-sm font-medium text-foreground">First name</label>
+            <Input
+              id="profile-first-name"
+              autoComplete="given-name"
+              value={formState.firstName}
+              onChange={(event) => setFormState((current) => ({ ...current, firstName: event.target.value }))}
+            />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Last name</label>
-            <Input value={formState.lastName} onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))} />
+            <label htmlFor="profile-last-name" className="text-sm font-medium text-foreground">Last name</label>
+            <Input
+              id="profile-last-name"
+              autoComplete="family-name"
+              value={formState.lastName}
+              onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))}
+            />
           </div>
           <div className="space-y-2">
             <label htmlFor="profile-phone" className="text-sm font-medium text-foreground">Phone</label>
@@ -107,8 +117,14 @@ export default function ProfilePage() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Email</label>
-            <Input type="email" value={formState.email} onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))} />
+            <label htmlFor="profile-email" className="text-sm font-medium text-foreground">Email</label>
+            <Input
+              id="profile-email"
+              type="email"
+              autoComplete="email"
+              value={formState.email}
+              onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
+            />
           </div>
           <div className="md:col-span-2 flex justify-end">
             <Button type="submit">Save profile</Button>

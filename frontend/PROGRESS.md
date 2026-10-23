@@ -419,3 +419,15 @@
 - Kept mutations from auto-retrying to avoid duplicate writes; users are prompted to retry the failed action after reconnecting.
 - Added tests for connection errors/events, offline/online notices, cancellation handling, and bounded query retry.
 - Validation: network tests (7), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
+
+## Scoped browser-cache clearing
+- Audited frontend persistence: report rows and coverage use IndexedDB and have a report-specific clear control; patient-location suggestions use localStorage and remain available to patient search and forms without an added clear button.
+- Patient records are not persisted as an offline cache. The auth session, saved report views, and export history are separate user data/preferences and are not affected by report-cache clearing.
+- The requested patient-location cache controls were removed from the patient list and patient forms.
+
+## Patient-list pagination
+- Connected patient search to the existing server pagination with 20 results per page, matching the OPD list size and controls.
+- Added a “Showing … of … patients” summary and Previous/Next controls using backend pagination metadata; search and filter changes return to page 1.
+- Kept prior query results visible during page changes and disabled pagination controls while results are changing/loading.
+- Updated the patient-list query cache key used after patient registration to match the paginated first-page request.
+- Validation: patient search tests (9), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.

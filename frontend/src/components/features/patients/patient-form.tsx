@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Controller, useForm, useWatch, type FieldErrors, type Resolver } from "react-hook-form";
 import { Dialog } from "@base-ui/react/dialog";
 import { Camera, ImagePlus, RefreshCw, RotateCcw, X } from "lucide-react";
@@ -129,6 +129,8 @@ export function PatientForm({
   className?: string;
 }) {
   const formVariant = variant ?? (initialValues ? "edit" : "with-opd");
+  const formId = useId();
+  const fieldId = (name: string) => `${formId}-${name}`;
   const localToday = toLocalInputDate();
   const [photo, setPhoto] = useState<File | null>(initialPhoto);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(() =>
@@ -380,18 +382,18 @@ export function PatientForm({
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <label htmlFor="firstName" className="text-sm font-medium text-foreground">First name<RequiredMark /></label>
-          <Input id="firstName" aria-invalid={Boolean(form.formState.errors.firstName || serverFieldErrors?.firstName)} {...form.register("firstName")} />
+          <label htmlFor={fieldId("firstName")} className="text-sm font-medium text-foreground">First name<RequiredMark /></label>
+          <Input id={fieldId("firstName")} aria-invalid={Boolean(form.formState.errors.firstName || serverFieldErrors?.firstName)} {...form.register("firstName")} />
           {form.formState.errors.firstName ? <p className="text-sm text-destructive">{form.formState.errors.firstName.message}</p> : null}
           {serverFieldErrors?.firstName ? <p className="text-sm text-destructive">{serverFieldErrors.firstName}</p> : null}
         </div>
         <div className="space-y-2">
-          <label htmlFor="otherName" className="text-sm font-medium text-foreground">Other name</label>
-          <Input id="otherName" {...form.register("otherName")} />
+          <label htmlFor={fieldId("otherName")} className="text-sm font-medium text-foreground">Other name</label>
+          <Input id={fieldId("otherName")} {...form.register("otherName")} />
         </div>
         <div className="space-y-2">
-          <label htmlFor="lastName" className="text-sm font-medium text-foreground">Last name<RequiredMark /></label>
-          <Input id="lastName" aria-invalid={Boolean(form.formState.errors.lastName || serverFieldErrors?.lastName)} {...form.register("lastName")} />
+          <label htmlFor={fieldId("lastName")} className="text-sm font-medium text-foreground">Last name<RequiredMark /></label>
+          <Input id={fieldId("lastName")} aria-invalid={Boolean(form.formState.errors.lastName || serverFieldErrors?.lastName)} {...form.register("lastName")} />
           {form.formState.errors.lastName ? <p className="text-sm text-destructive">{form.formState.errors.lastName.message}</p> : null}
           {serverFieldErrors?.lastName ? <p className="text-sm text-destructive">{serverFieldErrors.lastName}</p> : null}
         </div>
@@ -399,10 +401,11 @@ export function PatientForm({
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <label htmlFor="dateOfBirth" className="text-sm font-medium text-foreground">Date of birth<RequiredMark /></label>
+          <label htmlFor={fieldId("dateOfBirth")} className="text-sm font-medium text-foreground">Date of birth<RequiredMark /></label>
           <Input
-            id="dateOfBirth"
+            id={fieldId("dateOfBirth")}
             type="date"
+            max={localToday}
             aria-invalid={Boolean(form.formState.errors.dateOfBirth || serverFieldErrors?.dateOfBirth)}
             {...form.register("dateOfBirth", {
               onChange: (event) => {
@@ -417,9 +420,9 @@ export function PatientForm({
           <p className="text-xs text-muted-foreground">Date of birth or age is required.</p>
         </div>
         <div className="space-y-2">
-          <label htmlFor="age" className="text-sm font-medium text-foreground">Age<RequiredMark /></label>
+          <label htmlFor={fieldId("age")} className="text-sm font-medium text-foreground">Age<RequiredMark /></label>
           <Input
-            id="age"
+            id={fieldId("age")}
             type="number"
             min={0}
             max={130}
@@ -439,12 +442,12 @@ export function PatientForm({
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <label htmlFor="gender" className="text-sm font-medium text-foreground">Gender<RequiredMark /></label>
+          <label htmlFor={fieldId("gender")} className="text-sm font-medium text-foreground">Gender<RequiredMark /></label>
           <select
-            id="gender"
+            id={fieldId("gender")}
             aria-required="true"
             aria-invalid={Boolean(form.formState.errors.gender || serverFieldErrors?.gender)}
-            aria-describedby={form.formState.errors.gender || serverFieldErrors?.gender ? "gender-error" : undefined}
+            aria-describedby={form.formState.errors.gender || serverFieldErrors?.gender ? fieldId("gender-error") : undefined}
             {...form.register("gender")}
             className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
@@ -452,16 +455,16 @@ export function PatientForm({
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
-          {form.formState.errors.gender ? <p id="gender-error" className="text-sm text-destructive">{form.formState.errors.gender.message}</p> : null}
+          {form.formState.errors.gender ? <p id={fieldId("gender-error")} className="text-sm text-destructive">{form.formState.errors.gender.message}</p> : null}
           {serverFieldErrors?.gender ? <p className="text-sm text-destructive">{serverFieldErrors.gender}</p> : null}
         </div>
         <div className="space-y-2">
-          <label htmlFor="maritalStatus" className="text-sm font-medium text-foreground">Marital status<RequiredMark /></label>
+          <label htmlFor={fieldId("maritalStatus")} className="text-sm font-medium text-foreground">Marital status<RequiredMark /></label>
           <select
-            id="maritalStatus"
+            id={fieldId("maritalStatus")}
             aria-required="true"
             aria-invalid={Boolean(form.formState.errors.maritalStatus || serverFieldErrors?.maritalStatus)}
-            aria-describedby={form.formState.errors.maritalStatus || serverFieldErrors?.maritalStatus ? "maritalStatus-error" : undefined}
+            aria-describedby={form.formState.errors.maritalStatus || serverFieldErrors?.maritalStatus ? fieldId("maritalStatus-error") : undefined}
             {...form.register("maritalStatus")}
             className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
@@ -472,32 +475,32 @@ export function PatientForm({
             <option value="widowed">Widowed</option>
           </select>
           {form.formState.errors.maritalStatus ? (
-            <p id="maritalStatus-error" className="text-sm text-destructive">{form.formState.errors.maritalStatus.message}</p>
+            <p id={fieldId("maritalStatus-error")} className="text-sm text-destructive">{form.formState.errors.maritalStatus.message}</p>
           ) : null}
           {serverFieldErrors?.maritalStatus ? <p className="text-sm text-destructive">{serverFieldErrors.maritalStatus}</p> : null}
         </div>
         <div className="space-y-2">
-          <label htmlFor="religion" className="text-sm font-medium text-foreground">Religion<RequiredMark /></label>
+          <label htmlFor={fieldId("religion")} className="text-sm font-medium text-foreground">Religion<RequiredMark /></label>
           <select
-            id="religion"
+            id={fieldId("religion")}
             aria-required="true"
             aria-invalid={Boolean(form.formState.errors.religion || serverFieldErrors?.religion)}
-            aria-describedby={form.formState.errors.religion ? "religion-error" : undefined}
+            aria-describedby={form.formState.errors.religion ? fieldId("religion-error") : undefined}
             {...form.register("religion")}
             className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Select religion</option>
             {PATIENT_RELIGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
           </select>
-          {form.formState.errors.religion ? <p id="religion-error" className="text-sm text-destructive">{form.formState.errors.religion.message}</p> : null}
+          {form.formState.errors.religion ? <p id={fieldId("religion-error")} className="text-sm text-destructive">{form.formState.errors.religion.message}</p> : null}
           {serverFieldErrors?.religion ? <p className="text-sm text-destructive">{serverFieldErrors.religion}</p> : null}
         </div>
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="occupation" className="text-sm font-medium text-foreground">Occupation</label>
+        <label htmlFor={fieldId("occupation")} className="text-sm font-medium text-foreground">Occupation</label>
         <Input
-          id="occupation"
+          id={fieldId("occupation")}
           maxLength={100}
           aria-invalid={Boolean(form.formState.errors.occupation || serverFieldErrors?.occupation)}
           {...form.register("occupation")}
@@ -506,76 +509,76 @@ export function PatientForm({
         {serverFieldErrors?.occupation ? <p className="text-sm text-destructive">{serverFieldErrors.occupation}</p> : null}
       </div>
 
-      <section className="space-y-4 border-t border-border pt-5" aria-labelledby="patient-identification-heading">
+      <section className="space-y-4 border-t border-border pt-5" aria-labelledby={fieldId("patient-identification-heading")}>
         <div>
-          <h3 id="patient-identification-heading" className="text-base font-semibold text-foreground">Identification</h3>
+          <h3 id={fieldId("patient-identification-heading")} className="text-base font-semibold text-foreground">Identification</h3>
           <p className="mt-1 text-sm text-muted-foreground">Optional national and health-insurance identifiers.</p>
         </div>
         <div className="space-y-3">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="ghCardNumber" className="text-sm font-medium text-foreground">Ghana Card number</label>
+              <label htmlFor={fieldId("ghCardNumber")} className="text-sm font-medium text-foreground">Ghana Card number</label>
               <Controller
                 control={form.control}
                 name="ghCardNumber"
                 render={({ field }) => (
                   <GhCardNumberInput
-                    id="ghCardNumber"
+                    id={fieldId("ghCardNumber")}
                     inputRef={field.ref}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={() => { field.onBlur(); void form.trigger("ghCardNumber"); }}
                     aria-invalid={Boolean(form.formState.errors.ghCardNumber)}
-                    aria-describedby={form.formState.errors.ghCardNumber ? "ghCardNumber-error" : undefined}
+                    aria-describedby={form.formState.errors.ghCardNumber ? fieldId("ghCardNumber-error") : undefined}
                   />
                 )}
               />
-              {form.formState.errors.ghCardNumber ? <p id="ghCardNumber-error" className="text-sm text-destructive">{form.formState.errors.ghCardNumber.message}</p> : null}
+              {form.formState.errors.ghCardNumber ? <p id={fieldId("ghCardNumber-error")} className="text-sm text-destructive">{form.formState.errors.ghCardNumber.message}</p> : null}
               {serverFieldErrors?.ghCardNumber ? <p className="text-sm text-destructive">{serverFieldErrors.ghCardNumber}</p> : null}
             </div>
             <div className="space-y-2">
-              <label htmlFor="nhisNumber" className="text-sm font-medium text-foreground">NHIS number</label>
+              <label htmlFor={fieldId("nhisNumber")} className="text-sm font-medium text-foreground">NHIS number</label>
               <Controller
                 control={form.control}
                 name="nhisNumber"
                 render={({ field }) => (
                   <NhisNumberInput
-                    id="nhisNumber"
+                    id={fieldId("nhisNumber")}
                     inputRef={field.ref}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={() => { field.onBlur(); void form.trigger("nhisNumber"); }}
                     aria-invalid={Boolean(form.formState.errors.nhisNumber)}
-                    aria-describedby={form.formState.errors.nhisNumber ? "nhisNumber-error" : undefined}
+                    aria-describedby={form.formState.errors.nhisNumber ? fieldId("nhisNumber-error") : undefined}
                   />
                 )}
               />
-              {form.formState.errors.nhisNumber ? <p id="nhisNumber-error" className="text-sm text-destructive">{form.formState.errors.nhisNumber.message}</p> : null}
+              {form.formState.errors.nhisNumber ? <p id={fieldId("nhisNumber-error")} className="text-sm text-destructive">{form.formState.errors.nhisNumber.message}</p> : null}
               {serverFieldErrors?.nhisNumber ? <p className="text-sm text-destructive">{serverFieldErrors.nhisNumber}</p> : null}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="space-y-4 border-t border-border pt-5" aria-labelledby="patient-contact-heading">
+      <section className="space-y-4 border-t border-border pt-5" aria-labelledby={fieldId("patient-contact-heading")}>
         <div>
-          <h3 id="patient-contact-heading" className="text-base font-semibold text-foreground">Contact &amp; location</h3>
+          <h3 id={fieldId("patient-contact-heading")} className="text-base font-semibold text-foreground">Contact &amp; location</h3>
           <p className="mt-1 text-sm text-muted-foreground">Add the best available contact number and area details.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label htmlFor="phone" className="text-sm font-medium text-foreground">Phone</label>
+            <label htmlFor={fieldId("phone")} className="text-sm font-medium text-foreground">Phone</label>
             <PhoneInput
-              id="phone"
+              id={fieldId("phone")}
               aria-invalid={Boolean(form.formState.errors.phone || serverFieldErrors?.phone)}
               error={form.formState.errors.phone?.message ?? serverFieldErrors?.phone}
               {...form.register("phone")}
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-foreground">Email</label>
+            <label htmlFor={fieldId("email")} className="text-sm font-medium text-foreground">Email</label>
             <Input
-              id="email"
+              id={fieldId("email")}
               type="email"
               autoComplete="email"
               maxLength={100}
@@ -589,9 +592,9 @@ export function PatientForm({
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
-            <label htmlFor="region" className="text-sm font-medium text-foreground">Region</label>
+            <label htmlFor={fieldId("region")} className="text-sm font-medium text-foreground">Region</label>
             <select
-              id="region"
+              id={fieldId("region")}
               {...form.register("region", {
                 onChange: () => {
                   form.setValue("district", "");
@@ -606,13 +609,13 @@ export function PatientForm({
             </select>
           </div>
           <div className="space-y-2">
-            <label htmlFor="district" className="text-sm font-medium text-foreground">District</label>
+            <label htmlFor={fieldId("district")} className="text-sm font-medium text-foreground">District</label>
             <Controller
               control={form.control}
               name="district"
               render={({ field }) => (
                 <LocationCombobox
-                  id="district"
+                  id={fieldId("district")}
                   value={field.value ?? ""}
                   options={districtSuggestions}
                   placeholder="Type or choose a district"
@@ -629,13 +632,13 @@ export function PatientForm({
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="town" className="text-sm font-medium text-foreground">Town</label>
+            <label htmlFor={fieldId("town")} className="text-sm font-medium text-foreground">Town</label>
             <Controller
               control={form.control}
               name="town"
               render={({ field }) => (
                 <LocationCombobox
-                  id="town"
+                  id={fieldId("town")}
                   value={field.value ?? ""}
                   options={townSuggestions}
                   placeholder="Type or choose a town"
@@ -651,13 +654,13 @@ export function PatientForm({
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="area" className="text-sm font-medium text-foreground">Area</label>
+            <label htmlFor={fieldId("area")} className="text-sm font-medium text-foreground">Area</label>
             <Controller
               control={form.control}
               name="area"
               render={({ field }) => (
                 <LocationCombobox
-                  id="area"
+                  id={fieldId("area")}
                   value={field.value ?? ""}
                   options={areaSuggestions}
                   placeholder="Type or choose an area"
@@ -672,9 +675,9 @@ export function PatientForm({
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="postalAddress" className="text-sm font-medium text-foreground">Postal address</label>
+          <label htmlFor={fieldId("postalAddress")} className="text-sm font-medium text-foreground">Postal address</label>
           <Input
-            id="postalAddress"
+            id={fieldId("postalAddress")}
             maxLength={100}
             aria-invalid={Boolean(form.formState.errors.postalAddress || serverFieldErrors?.postalAddress)}
             {...form.register("postalAddress")}
@@ -693,16 +696,16 @@ export function PatientForm({
       ) : null}
 
       {formVariant === "clinic-record" ? (
-        <section className="space-y-4 border-t border-border pt-5" aria-labelledby="manual-patient-number-heading">
+        <section className="space-y-4 border-t border-border pt-5" aria-labelledby={fieldId("manual-patient-number-heading")}>
           <div>
-            <h3 id="manual-patient-number-heading" className="text-base font-semibold text-foreground">Paper-book patient number</h3>
+            <h3 id={fieldId("manual-patient-number-heading")} className="text-base font-semibold text-foreground">Paper-book patient number</h3>
             <p className="mt-1 text-sm text-muted-foreground">Enter the year and number shown in the clinic record.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="year" className="text-sm font-medium text-foreground">Year<RequiredMark /></label>
+              <label htmlFor={fieldId("year")} className="text-sm font-medium text-foreground">Year<RequiredMark /></label>
               <Input
-                id="year"
+                id={fieldId("year")}
                 type="number"
                 min={2000}
                 max={localToday.slice(0, 4)}
@@ -710,17 +713,17 @@ export function PatientForm({
                 inputMode="numeric"
                 aria-required="true"
                 aria-invalid={Boolean(manualNumberError || form.formState.errors.year || serverFieldErrors?.year)}
-                aria-describedby={manualNumberError ? "manual-patient-number-error" : form.formState.errors.year ? "year-error" : undefined}
+                aria-describedby={manualNumberError ? fieldId("manual-patient-number-error") : form.formState.errors.year ? fieldId("year-error") : undefined}
                 className={manualNumberError ? "border-destructive" : undefined}
                 {...form.register("year", { onChange: onManualNumberChange })}
               />
-              {form.formState.errors.year ? <p id="year-error" className="text-sm text-destructive">{form.formState.errors.year.message}</p> : null}
+              {form.formState.errors.year ? <p id={fieldId("year-error")} className="text-sm text-destructive">{form.formState.errors.year.message}</p> : null}
               {serverFieldErrors?.year ? <p className="text-sm text-destructive">{serverFieldErrors.year}</p> : null}
             </div>
             <div className="space-y-2">
-              <label htmlFor="positionInYear" className="text-sm font-medium text-foreground">Number in year<RequiredMark /></label>
+              <label htmlFor={fieldId("positionInYear")} className="text-sm font-medium text-foreground">Number in year<RequiredMark /></label>
               <Input
-                id="positionInYear"
+                id={fieldId("positionInYear")}
                 type="number"
                 min={1}
                 max={999999}
@@ -728,15 +731,15 @@ export function PatientForm({
                 inputMode="numeric"
                 aria-required="true"
                 aria-invalid={Boolean(manualNumberError || form.formState.errors.positionInYear || serverFieldErrors?.positionInYear)}
-                aria-describedby={manualNumberError ? "manual-patient-number-error" : form.formState.errors.positionInYear ? "positionInYear-error" : undefined}
+                aria-describedby={manualNumberError ? fieldId("manual-patient-number-error") : form.formState.errors.positionInYear ? fieldId("positionInYear-error") : undefined}
                 className={manualNumberError ? "border-destructive" : undefined}
                 {...form.register("positionInYear", { onChange: onManualNumberChange })}
               />
-              {form.formState.errors.positionInYear ? <p id="positionInYear-error" className="text-sm text-destructive">{form.formState.errors.positionInYear.message}</p> : null}
+              {form.formState.errors.positionInYear ? <p id={fieldId("positionInYear-error")} className="text-sm text-destructive">{form.formState.errors.positionInYear.message}</p> : null}
               {serverFieldErrors?.positionInYear ? <p className="text-sm text-destructive">{serverFieldErrors.positionInYear}</p> : null}
             </div>
           </div>
-          {manualNumberError ? <p id="manual-patient-number-error" className="text-sm text-destructive" role="alert">{manualNumberError}</p> : null}
+          {manualNumberError ? <p id={fieldId("manual-patient-number-error")} className="text-sm text-destructive" role="alert">{manualNumberError}</p> : null}
           <p className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground" aria-live="polite">
             Patient ID preview: <span className="font-mono font-semibold">{patientIdPreview ?? "Enter year and number in year"}</span>
           </p>
@@ -744,49 +747,49 @@ export function PatientForm({
       ) : null}
 
       {formVariant === "with-opd" ? (
-        <section className="space-y-4 border-t border-border pt-5" aria-labelledby="visit-details-heading">
+        <section className="space-y-4 border-t border-border pt-5" aria-labelledby={fieldId("visit-details-heading")}>
           <div>
-            <h3 id="visit-details-heading" className="text-base font-semibold text-foreground">Visit details</h3>
+            <h3 id={fieldId("visit-details-heading")} className="text-base font-semibold text-foreground">Visit details</h3>
             <p className="mt-1 text-sm text-muted-foreground">Record the date and any notes for the patient’s first OPD visit.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="visitDate" className="text-sm font-medium text-foreground">Visit date<RequiredMark /></label>
+              <label htmlFor={fieldId("visitDate")} className="text-sm font-medium text-foreground">Visit date<RequiredMark /></label>
               <Input
-                id="visitDate"
+                id={fieldId("visitDate")}
                 type="date"
                 max={localToday}
                 aria-required="true"
                 aria-invalid={Boolean(form.formState.errors.visitDate || serverFieldErrors?.visitDate)}
                 aria-describedby={[
-                  form.formState.errors.visitDate ? "visitDate-error" : "",
-                  serverFieldErrors?.visitDate ? "visitDate-server-error" : "",
+                  form.formState.errors.visitDate ? fieldId("visitDate-error") : "",
+                  serverFieldErrors?.visitDate ? fieldId("visitDate-server-error") : "",
                 ].filter(Boolean).join(" ") || undefined}
                 {...form.register("visitDate")}
               />
-              {form.formState.errors.visitDate ? <p id="visitDate-error" className="text-sm text-destructive">{form.formState.errors.visitDate.message}</p> : null}
-              {serverFieldErrors?.visitDate ? <p id="visitDate-server-error" className="text-sm text-destructive">{serverFieldErrors.visitDate}</p> : null}
+              {form.formState.errors.visitDate ? <p id={fieldId("visitDate-error")} className="text-sm text-destructive">{form.formState.errors.visitDate.message}</p> : null}
+              {serverFieldErrors?.visitDate ? <p id={fieldId("visitDate-server-error")} className="text-sm text-destructive">{serverFieldErrors.visitDate}</p> : null}
             </div>
             <div className="space-y-2">
-              <label htmlFor="visitRemarks" className="text-sm font-medium text-foreground">Remarks <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <label htmlFor={fieldId("visitRemarks")} className="text-sm font-medium text-foreground">Remarks <span className="font-normal text-muted-foreground">(optional)</span></label>
               <textarea
-                id="visitRemarks"
+                id={fieldId("visitRemarks")}
                 rows={3}
                 {...form.register("visitRemarks")}
                 aria-invalid={Boolean(serverFieldErrors?.visitRemarks)}
-                aria-describedby={serverFieldErrors?.visitRemarks ? "visitRemarks-error" : undefined}
+                aria-describedby={serverFieldErrors?.visitRemarks ? fieldId("visitRemarks-error") : undefined}
                 className="flex min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
-              {serverFieldErrors?.visitRemarks ? <p id="visitRemarks-error" className="text-sm text-destructive">{serverFieldErrors.visitRemarks}</p> : null}
+              {serverFieldErrors?.visitRemarks ? <p id={fieldId("visitRemarks-error")} className="text-sm text-destructive">{serverFieldErrors.visitRemarks}</p> : null}
             </div>
           </div>
         </section>
       ) : null}
 
       {enablePhoto ? (
-        <section className="space-y-3 rounded-xl border border-border p-4" aria-labelledby="patient-photo-heading">
+        <section className="space-y-3 rounded-xl border border-border p-4" aria-labelledby={fieldId("patient-photo-heading")}>
           <div>
-            <h3 id="patient-photo-heading" className="text-sm font-semibold text-foreground">Patient photo <span className="font-normal text-muted-foreground">(optional)</span></h3>
+            <h3 id={fieldId("patient-photo-heading")} className="text-sm font-semibold text-foreground">Patient photo <span className="font-normal text-muted-foreground">(optional)</span></h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {formVariant === "edit" && existingPhotoUrl
                 ? "Take or upload a new photo to replace the current one. Leave it unchanged to keep the current photo."
@@ -841,7 +844,7 @@ export function PatientForm({
                 </Button>
                 <input
                   ref={fileInputRef}
-                  id="patient-photo-upload"
+                  id={fieldId("patient-photo-upload")}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   className="sr-only"
