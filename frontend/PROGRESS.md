@@ -117,6 +117,11 @@
 - Preserved the mobile header offset and desktop top offset for the sticky registration actions.
 - Validation: dashboard regression test, full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass; the running dev server returns HTTP 200 for `/patients` and `/dashboard`.
 
+## Touch-device input focus zoom
+- Kept the standard scalable device-width viewport and set text inputs, selects, and textareas to at least 16px on touch devices to prevent mobile Safari's automatic focus zoom.
+- Left pinch/manual zoom available; no `maximum-scale` or `user-scalable=no` restrictions were added.
+- Validation: full lint, TypeScript check, production build, and `git diff --check -- frontend` pass; the login route serves HTTP 200 with `width=device-width, initial-scale=1` and unrestricted user zoom.
+
 ## Patient detail visual alignment
 - Matched the patient detail screen to the OPD detail layout with the same card treatment, section hierarchy, and loading skeleton pattern.
 - Grouped patient demographics and contact/location details while preserving existing edit, registration, and identifier behavior; added retry and back actions to the error state.
@@ -349,6 +354,11 @@
 - Updated stale test expectations and fixtures to match current required patient fields, accessible filter labels, dashboard links, and responsive report markup.
 - No backend changes were needed or made.
 - Validation: all 42 test files pass (187 tests), full ESLint, `tsc --noEmit`, production build, and `git diff --check -- frontend` pass. Vitest still emits its existing config-loader compatibility warning.
+
+## Patient image failure fallback
+- Added a shared patient-photo image component that displays the app's profile-avatar fallback when a photo fails to load, including patient details, registration/edit previews, and camera captures. A changed photo URL is retried.
+- The OPD and patient-list avatar already had its own failed-image fallback; audited image elements to confirm all patient-photo displays are covered.
+- Validation: image fallback and avatar tests (5), targeted ESLint, TypeScript check, production build, and `git diff --check` pass.
 
 ## Patient report record-check follow-up
 - Removed the separate "Other name" column from the patient report table; the formatted patient name remains.

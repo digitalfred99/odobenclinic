@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
-import Image from "next/image";
 import {
   ArrowUpRight,
   ArrowLeft,
@@ -30,6 +29,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { PatientForm } from "@/components/features/patients/patient-form";
+import { PatientPhotoImage } from "@/components/features/patients/patient-photo-image";
 import { Button } from "@/components/ui/button";
 import { CloseButton } from "@/components/ui/close-button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
@@ -293,11 +293,10 @@ export default function PatientDetailPage() {
                 <CloseButton aria-label="Close patient photo" onClick={() => setPhotoOpen(false)} />
               </div>
               <div className="relative h-[70dvh] max-h-[48rem] min-h-[12rem] w-full overflow-hidden rounded-xl bg-muted/30">
-                <Image
+                <PatientPhotoImage
                   src={resolvePatientPhotoUrl(patient.imageUrl)}
                   alt={`Patient photo of ${formatPatientName(patient)}`}
                   fill
-                  unoptimized
                   sizes="(max-width: 640px) 100vw, 80vw"
                   className="object-contain"
                 />
@@ -329,12 +328,11 @@ export default function PatientDetailPage() {
                   onClick={() => setPhotoOpen(true)}
                   className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Image
+                  <PatientPhotoImage
                     src={resolvePatientPhotoUrl(patient.imageUrl)}
                     alt={`Patient photo of ${formatPatientName(patient)}`}
                     width={96}
                     height={96}
-                    unoptimized
                     className="h-24 w-24 rounded-xl border border-border object-cover"
                   />
                 </button>

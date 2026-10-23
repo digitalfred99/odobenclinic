@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Camera, LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PatientPhotoImage } from "@/components/features/patients/patient-photo-image";
 import { useCamera } from "@/hooks/use-camera";
 
 type PatientPhotoCameraProps = {
@@ -113,12 +113,11 @@ export default function PatientPhotoCamera({ onClose, onUsePhoto }: PatientPhoto
                 aria-label="Live patient camera preview"
               />
               {!isLiveMode && previewUrl ? (
-                <Image
+                <PatientPhotoImage
                   src={previewUrl}
                   alt="Captured patient photo preview"
                   width={1024}
                   height={768}
-                  unoptimized
                   className="absolute inset-0 h-full w-full object-contain"
                 />
               ) : null}
