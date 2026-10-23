@@ -9,6 +9,7 @@ import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { getPhoneNumberError, sanitizePhoneNumber } from "@/lib/phone";
+import { scheduleScrollToFirstInvalidField } from "@/lib/scroll-to-first-invalid-field";
 import { displayRoleLabel } from "@/types/auth";
 
 function buildProfileForm(profile?: { firstName?: string; lastName?: string; phone?: string | null; email?: string | null } | null) {
@@ -35,6 +36,7 @@ export default function ProfilePage() {
     const phoneValidationError = getPhoneNumberError(formState.phone);
     if (phoneValidationError) {
       setPhoneError(phoneValidationError);
+      scheduleScrollToFirstInvalidField(event.currentTarget);
       return;
     }
     setPhoneError(null);

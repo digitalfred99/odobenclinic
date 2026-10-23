@@ -19,6 +19,7 @@ import { GhCardNumberInput, NhisNumberInput } from "@/components/ui/patient-iden
 import { LocationCombobox } from "@/components/ui/location-combobox";
 import { cn } from "@/lib/utils";
 import { calculateAge, toLocalInputDate } from "@/lib/dates";
+import { scheduleScrollToFirstInvalidField } from "@/lib/scroll-to-first-invalid-field";
 import { sanitizePhoneNumber } from "@/lib/phone";
 import { usePatientLocationCache } from "@/lib/patient-location-cache";
 import { preparePatientPhoto, resolvePatientPhotoUrl, validatePatientPhoto } from "@/lib/patient-photo";
@@ -145,6 +146,7 @@ export function PatientForm({
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadRequestRef = useRef(0);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<PatientFormValues>({
     defaultValues: {
@@ -185,6 +187,7 @@ export function PatientForm({
     }) as Resolver<PatientFormValues>,
     mode: "onSubmit",
     reValidateMode: "onChange",
+    shouldFocusError: false,
   });
 
   const dateOfBirth = useWatch({ control: form.control, name: "dateOfBirth" });
@@ -199,6 +202,12 @@ export function PatientForm({
     if (!onValuesChange) return;
     onValuesChange(formValues as PatientFormValues);
   }, [formValues, onValuesChange]);
+
+  useEffect(() => {
+    if (manualNumberError || Object.values(serverFieldErrors ?? {}).some(Boolean)) {
+      scheduleScrollToFirstInvalidField(formRef.current);
+    }
+  }, [manualNumberError, serverFieldErrors]);
 
   const districtSuggestions = getDistrictSuggestions(savedLocations, regionValue ?? "");
   const townSuggestions = getTownSuggestions(savedLocations, regionValue ?? "", districtValue ?? "");
@@ -327,7 +336,11 @@ export function PatientForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit(submit)}
+      ref={formRef}
+      onSubmit={form.handleSubmit(submit, (_errors, event) => {
+        const form = event?.target instanceof HTMLFormElement ? event.target : null;
+        scheduleScrollToFirstInvalidField(form);
+      })}
       onChangeCapture={(event) => {
         const target = event.target;
         if (

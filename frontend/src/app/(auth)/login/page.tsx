@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Input } from "@/components/ui/input";
 import { getPhoneNumberError } from "@/lib/phone";
+import { scheduleScrollToFirstInvalidField } from "@/lib/scroll-to-first-invalid-field";
 import { consumeSignInNotice } from "@/lib/session";
 
 const loginSchema = z.object({
@@ -81,7 +82,13 @@ export default function LoginPage() {
           </p>
         ) : null}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form
+          onSubmit={handleSubmit(onSubmit, (_errors, event) => {
+            const form = event?.target instanceof HTMLFormElement ? event.target : null;
+            scheduleScrollToFirstInvalidField(form);
+          })}
+          className="space-y-5"
+        >
           <div className="space-y-2">
             <label htmlFor="phone" className="text-sm font-medium text-foreground">
               Phone

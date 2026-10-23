@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Check, Eye, EyeOff, Plus, Search, X } from "lucide-react";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { getPasswordPolicyError, isUserPasswordValid } from "@/lib/password";
 import { getPhoneNumberError, sanitizePhoneNumber } from "@/lib/phone";
+import { scheduleScrollToFirstInvalidField } from "@/lib/scroll-to-first-invalid-field";
 import type { ClinicUser, UsersListResponse } from "@/types/user";
 
 const EMPTY_FORM = {
@@ -65,6 +66,7 @@ export default function UsersPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const userFormRef = useRef<HTMLFormElement>(null);
   const debouncedSearch = useDebouncedValue(search, 350);
 
   const queryParams = useMemo(() => {
@@ -95,6 +97,7 @@ export default function UsersPage() {
     const phoneValidationError = getPhoneNumberError(formState.phone, !editingUserId);
     if (phoneValidationError) {
       setPhoneError(phoneValidationError);
+      scheduleScrollToFirstInvalidField(event.currentTarget);
       return;
     }
     const passwordPolicyError = formState.password
@@ -102,14 +105,17 @@ export default function UsersPage() {
       : null;
     if (passwordPolicyError) {
       setPasswordError(passwordPolicyError);
+      scheduleScrollToFirstInvalidField(event.currentTarget);
       return;
     }
     if (formState.password && !isUserPasswordValid(formState.password)) {
       setPasswordError("Please meet all password requirements before continuing.");
+      scheduleScrollToFirstInvalidField(event.currentTarget);
       return;
     }
     if (!editingUserId && !formState.password) {
       setPasswordError("A password is required when creating a user.");
+      scheduleScrollToFirstInvalidField(event.currentTarget);
       return;
     }
 
@@ -150,6 +156,7 @@ export default function UsersPage() {
       const message = err instanceof Error ? err.message : "Unable to save user.";
       if (/password/i.test(message)) {
         setPasswordError(message);
+        scheduleScrollToFirstInvalidField(userFormRef.current);
       } else {
         setError(message);
       }
@@ -240,7 +247,7 @@ export default function UsersPage() {
       {error ? <FeedbackMessage message={error} kind="error" onDismiss={() => setError(null)} /> : null}
 
       {canManageUsers ? (
-        <form onSubmit={submitUser} className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <form ref={userFormRef} onSubmit={submitUser} className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center gap-2 text-primary">
             <Plus className="h-4 w-4" />
             <span className="text-sm font-medium">{editingUserId ? "Edit user" : "Create user"}</span>

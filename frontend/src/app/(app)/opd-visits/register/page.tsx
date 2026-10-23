@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/api";
 import { formatPatientName } from "@/lib/patient-name";
 import { patientReligionLabel } from "@/types/patient";
 import { buildOPDVisitQuery, type VisitDateRange } from "@/lib/opd-visits";
+import { scheduleScrollElementIntoView } from "@/lib/scroll-to-first-invalid-field";
 import { Button } from "@/components/ui/button";
 import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -488,6 +489,7 @@ function OPDVisitRegistrationContent() {
 
     if (!selectedPatientId) {
       setError("Choose a patient before registering the visit.");
+      scheduleScrollElementIntoView(searchRef.current);
       return;
     }
 
