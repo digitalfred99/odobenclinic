@@ -28,6 +28,14 @@ beforeEach(() => {
 });
 
 describe("profile page", () => {
+  it("associates every profile label with its input and supports browser autofill", () => {
+    render(<ProfilePage />);
+
+    expect(screen.getByLabelText("First name")).toHaveAttribute("autocomplete", "given-name");
+    expect(screen.getByLabelText("Last name")).toHaveAttribute("autocomplete", "family-name");
+    expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "email");
+  });
+
   it("updates profile details without rendering or sending a password field", async () => {
     render(<ProfilePage />);
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();

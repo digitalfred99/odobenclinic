@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Filter, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
@@ -39,9 +39,10 @@ const emptyFilters: PatientFilters = {
   patientId: "",
 };
 
+const PAGE_SIZE = 20;
 const filterSelectClass = "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-function buildPatientQuery(searchTerm: string, filters: PatientFilters) {
+function buildPatientQuery(searchTerm: string, filters: PatientFilters, page: number) {
   const params = new URLSearchParams();
   const search = searchTerm.trim();
 
@@ -52,8 +53,11 @@ function buildPatientQuery(searchTerm: string, filters: PatientFilters) {
     if (normalizedValue) params.set(key, normalizedValue);
   }
 
+  params.set("page", String(page));
+  params.set("limit", String(PAGE_SIZE));
+
   const query = params.toString();
-  return query ? `?${query}` : "";
+  return `?${query}`;
 }
 
 function patientContactSummary(patient: Patient) {
@@ -82,17 +86,25 @@ export function PatientSearchList({ className }: { className?: string }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<PatientFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<PatientFilters>(emptyFilters);
+  const [page, setPage] = useState(1);
   const { locations: savedLocations } = usePatientLocationCache();
   const debouncedSearchTerm = useDebouncedValue(searchTerm);
-  const queryString = buildPatientQuery(debouncedSearchTerm, appliedFilters);
+  const queryString = buildPatientQuery(debouncedSearchTerm, appliedFilters, page);
   const activeFilterCount = Object.values(appliedFilters).filter((value) => value.trim()).length;
+  const isSettlingSearch = searchTerm.trim() !== debouncedSearchTerm.trim();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, isPlaceholderData, error } = useQuery({
     queryKey: ["patients", queryString],
     queryFn: ({ signal }) => apiRequest<PatientListResponse>(`/patients${queryString}`, { signal }),
+    placeholderData: keepPreviousData,
   });
 
   const patients = useMemo(() => data?.patients ?? [], [data?.patients]);
+  const total = data?.pagination?.total ?? patients.length;
+  const totalPages = Math.max(1, data?.pagination?.totalPages ?? 1);
+  const isRefreshing = Boolean(data) && (isPlaceholderData || isSettlingSearch);
+  const rangeStart = total > 0 ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
   const locationRecords = useMemo(
     () => [...savedLocations, ...patients],
     [savedLocations, patients]
@@ -152,12 +164,14 @@ export function PatientSearchList({ className }: { className?: string }) {
       area: draftFilters.area.trim(),
       patientId: draftFilters.patientId.trim(),
     });
+    setPage(1);
     setFiltersOpen(false);
   };
 
   const clearFilters = () => {
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
+    setPage(1);
   };
 
   return (
@@ -167,7 +181,10 @@ export function PatientSearchList({ className }: { className?: string }) {
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) => {
+              setSearchTerm(event.target.value);
+              setPage(1);
+            }}
             className="pl-9"
             aria-label="Search patients by name, patient ID, phone, Ghana Card, NHIS, location, age, date of birth, postal address or occupation"
             placeholder="Search names, ID, phone, Ghana Card, NHIS, location, age, DOB, postal address or occupation"
@@ -333,6 +350,40 @@ export function PatientSearchList({ className }: { className?: string }) {
           </div>
         ))}
       </div>
+
+      {data && !error ? (
+        <nav
+          aria-label="Patient list pages"
+          className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p className="text-sm text-muted-foreground">
+            {total > 0 ? `Showing ${rangeStart}\u2013${rangeEnd} of ${total.toLocaleString()} patients` : "No patients"}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 flex-1 sm:flex-none"
+              disabled={page <= 1 || isRefreshing || isFetching}
+              onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            >
+              Previous
+            </Button>
+            <span className="min-w-24 text-center text-sm tabular-nums text-muted-foreground" aria-live="polite">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 flex-1 sm:flex-none"
+              disabled={page >= totalPages || isRefreshing || isFetching}
+              onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        </nav>
+      ) : null}
     </div>
   );
 }

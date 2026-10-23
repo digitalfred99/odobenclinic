@@ -9,6 +9,33 @@ vi.mock("next/dynamic", () => ({
 import { PatientForm } from "./patient-form";
 
 describe("PatientForm defaults and guidance", () => {
+  it("keeps each reusable patient form's labels associated with its own fields", () => {
+    const { container } = render(
+      <>
+        <PatientForm onSubmit={vi.fn()} />
+        <PatientForm onSubmit={vi.fn()} />
+      </>
+    );
+
+    const firstNameInputs = screen.getAllByLabelText(/^First name/);
+    const firstNameLabels = Array.from(container.querySelectorAll("label")).filter((label) =>
+      label.textContent?.startsWith("First name")
+    );
+
+    expect(firstNameInputs).toHaveLength(2);
+    expect(new Set(firstNameInputs.map((input) => input.id)).size).toBe(2);
+    expect(firstNameLabels.map((label) => label.htmlFor)).toEqual(firstNameInputs.map((input) => input.id));
+
+    const ids = Array.from(container.querySelectorAll<HTMLElement>("[id]"), (element) => element.id);
+    expect(ids).toHaveLength(new Set(ids).size);
+  });
+
+  it("prevents selecting a future date of birth in native date pickers", () => {
+    render(<PatientForm onSubmit={vi.fn()} />);
+
+    expect(screen.getByLabelText(/^Date of birth/)).toHaveAttribute("max", toLocalInputDate());
+  });
+
   it("keeps native fields tappable after a validation error on iOS", async () => {
     render(
       <PatientForm

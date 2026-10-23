@@ -64,7 +64,7 @@ describe("PatientSearchList filters", () => {
 
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(
-        "/patients?gender=female&maritalStatus=married&religion=traditional&region=Greater+Accra&patientId=PT-12%2F2026",
+        "/patients?gender=female&maritalStatus=married&religion=traditional&region=Greater+Accra&patientId=PT-12%2F2026&page=1&limit=20",
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
@@ -137,7 +137,7 @@ describe("PatientSearchList filters", () => {
 
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(
-        "/patients?area=Osu",
+        "/patients?area=Osu&page=1&limit=20",
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
@@ -147,7 +147,7 @@ describe("PatientSearchList filters", () => {
 
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(
-        "/patients",
+        "/patients?page=1&limit=20",
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
@@ -174,6 +174,42 @@ describe("PatientSearchList filters", () => {
 
     expect(await screen.findByText("Ama Yaa Mensah")).toBeInTheDocument();
     expect(await screen.findByText("OPD No. 12/2026 • Accra Metro • Odoben • Awendadze • P.O. Box 12")).toBeInTheDocument();
+  });
+
+  it("paginates patient results and resets to the first page when search changes", async () => {
+    vi.mocked(apiRequest)
+      .mockResolvedValueOnce({
+        patients: [{ id: "patient-1", firstName: "Ama", lastName: "Mensah" }],
+        pagination: { page: 1, limit: 20, total: 21, totalPages: 2 },
+      })
+      .mockResolvedValueOnce({
+        patients: [{ id: "patient-21", firstName: "Kojo", lastName: "Owusu" }],
+        pagination: { page: 2, limit: 20, total: 21, totalPages: 2 },
+      });
+
+    renderPatientSearch();
+
+    expect(await screen.findByText("Ama Mensah")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 21 patients")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByText("Kojo Owusu")).toBeInTheDocument();
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenLastCalledWith(
+      "/patients?page=2&limit=20",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: /Search patients/ }), {
+      target: { value: "Ama" },
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenLastCalledWith(
+        "/patients?search=Ama&page=1&limit=20",
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
   });
 
   it("shows the avatar at the card corner on mobile and before the details on larger screens", async () => {
