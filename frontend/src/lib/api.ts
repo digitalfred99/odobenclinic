@@ -2,6 +2,9 @@ import { clearSession, getAccessToken, readSession, writeSession } from "@/lib/s
 import type { AuthUser, ChangePasswordRequest, ChangePasswordResponse, RefreshResponse } from "@/types/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+export const NETWORK_FAILURE_EVENT = "odoben:network-failure";
+export const NETWORK_FAILURE_MESSAGE =
+  "We couldn't connect. Check your internet connection, then retry the action.";
 
 export type ApiEnvelope<T> = {
   success: boolean;
@@ -31,8 +34,41 @@ export class ApiError extends Error {
   }
 }
 
+export class NetworkError extends Error {
+  constructor() {
+    super(NETWORK_FAILURE_MESSAGE);
+    this.name = "NetworkError";
+  }
+}
+
+function reportNetworkFailure(): NetworkError {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(NETWORK_FAILURE_EVENT));
+  }
+  return new NetworkError();
+}
+
+async function fetchApi(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (!(error instanceof TypeError)) {
+      throw error;
+    }
+    throw reportNetworkFailure();
+  }
+}
+
 async function parseApiPayload(response: Response) {
-  const text = await response.text();
+  let text: string;
+  try {
+    text = await response.text();
+  } catch (error) {
+    if (!(error instanceof TypeError)) {
+      throw error;
+    }
+    throw reportNetworkFailure();
+  }
 
   if (!text) {
     return null;
@@ -88,7 +124,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
     try {
       const url = `${API_BASE_URL.replace(/\/$/, "")}/auth/refresh`;
-      const response = await fetch(url, {
+      const response = await fetchApi(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken: currentSession.refreshToken }),
@@ -147,14 +183,14 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, option
     }
   }
 
-  let response = await fetch(url, { ...init, headers });
+  let response = await fetchApi(url, { ...init, headers });
 
   if (response.status === 401 && auth && !skipRefresh && !path.endsWith("/auth/refresh")) {
     const refreshedAccessToken = await refreshAccessToken();
 
     if (refreshedAccessToken) {
       headers.set("Authorization", `Bearer ${refreshedAccessToken}`);
-      response = await fetch(url, { ...init, headers });
+      response = await fetchApi(url, { ...init, headers });
     }
   }
 

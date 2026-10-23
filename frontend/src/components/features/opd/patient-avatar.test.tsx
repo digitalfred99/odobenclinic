@@ -34,4 +34,13 @@ describe("PatientAvatar", () => {
     expect(container.querySelector("img")).not.toBeInTheDocument();
     expect(container.querySelector("svg")).toBeInTheDocument();
   });
+
+  it("can show the avatar even when a patient has a photo", () => {
+    const { container } = render(
+      <PatientAvatar patient={{ ...patient, imageUrl: "/uploads/patients/ama.jpg" }} size="large" showPhoto={false} />
+    );
+
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+    expect(container.querySelector("svg")).toBeInTheDocument();
+  });
 });

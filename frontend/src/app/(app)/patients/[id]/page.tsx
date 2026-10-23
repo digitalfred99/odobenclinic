@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { PatientForm } from "@/components/features/patients/patient-form";
+import { PatientAvatar } from "@/components/features/opd/patient-avatar";
 import { PatientPhotoImage } from "@/components/features/patients/patient-photo-image";
 import { Button } from "@/components/ui/button";
 import { CloseButton } from "@/components/ui/close-button";
@@ -284,21 +285,32 @@ export default function PatientDetailPage() {
           <Dialog.Portal>
             <Dialog.Backdrop className="pointer-events-auto touch-none fixed inset-0 z-[100] bg-foreground/50 backdrop-blur-sm" />
             <Dialog.Popup
-              className="fixed left-1/2 top-1/2 z-[101] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-card p-3 text-card-foreground shadow-xl outline-none sm:p-5"
+              className="fixed left-1/2 top-1/2 z-[101] flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-card p-3 text-card-foreground shadow-xl outline-none sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:p-5"
             >
-              <div className="flex items-center justify-between gap-3 pb-3">
-                <Dialog.Title className="min-w-0 truncate text-lg font-semibold text-foreground">
-                  Patient photo of {formatPatientName(patient)}
-                </Dialog.Title>
+              <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3 sm:mb-4 sm:pb-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                    Patient photo
+                  </p>
+                  <Dialog.Title className="mt-1 truncate text-lg font-semibold leading-tight text-foreground sm:text-xl">
+                    {formatPatientName(patient)}
+                  </Dialog.Title>
+                  {patient.patientId ? (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <IdCard className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                      OPD No. {formatPatientDisplayId(patient.patientId)}
+                    </p>
+                  ) : null}
+                </div>
                 <CloseButton aria-label="Close patient photo" onClick={() => setPhotoOpen(false)} />
               </div>
-              <div className="relative h-[70dvh] max-h-[48rem] min-h-[12rem] w-full overflow-hidden rounded-xl bg-muted/30">
+              <div className="patient-photo-frame relative h-[min(68dvh,42rem)] min-h-[12rem] w-full overflow-hidden rounded-xl border border-border/70 bg-muted/30 shadow-inner">
                 <PatientPhotoImage
                   src={resolvePatientPhotoUrl(patient.imageUrl)}
                   alt={`Patient photo of ${formatPatientName(patient)}`}
                   fill
                   sizes="(max-width: 640px) 100vw, 80vw"
-                  className="object-contain"
+                  className="object-contain p-2 sm:p-4"
                 />
               </div>
             </Dialog.Popup>
@@ -336,7 +348,9 @@ export default function PatientDetailPage() {
                     className="h-24 w-24 rounded-xl border border-border object-cover"
                   />
                 </button>
-              ) : null}
+              ) : (
+                <PatientAvatar patient={patient} size="profile" showPhoto={false} />
+              )}
             </div>
 
             <div className="space-y-6 pt-5">

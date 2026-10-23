@@ -299,7 +299,7 @@ export function PatientSearchList({ className }: { className?: string }) {
           <div key={patient.id} className="relative flex flex-col gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <div className="absolute right-4 top-4 sm:static sm:shrink-0">
-                <PatientAvatar patient={patient} size="large" />
+                <PatientAvatar patient={patient} size="large" showPhoto={false} />
               </div>
               <div className="min-w-0 pr-16 sm:pr-0">
                 <p className="font-medium text-foreground">{formatPatientName(patient)}</p>

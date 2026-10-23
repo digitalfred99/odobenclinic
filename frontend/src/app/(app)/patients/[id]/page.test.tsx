@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api";
 import PatientDetailPage from "./page";
@@ -116,6 +116,7 @@ describe("PatientDetailPage", () => {
       id: "patient-uuid",
       firstName: "Ama",
       lastName: "Mensah",
+      patientId: "PT-12/2026",
       imageUrl: "/uploads/patients/ama.jpg",
     });
     vi.mocked(apiRequest).mockResolvedValueOnce({ opdVisits: [], pagination: { total: 0, totalPages: 1 } });
@@ -126,17 +127,35 @@ describe("PatientDetailPage", () => {
     expect(photo).toHaveAttribute("src", expect.stringContaining("/uploads/patients/ama.jpg"));
     fireEvent.click(screen.getByRole("button", { name: "View photo of Ama Mensah" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Patient photo of Ama Mensah" });
+    const dialog = screen.getByRole("dialog", { name: "Ama Mensah" });
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveClass("max-w-5xl");
+    expect(within(dialog).getByText("Patient photo")).toBeInTheDocument();
+    expect(within(dialog).getByText("OPD No. 12/2026")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close patient photo" })).toBeInTheDocument();
+    expect(dialog.querySelector(".patient-photo-frame")).toHaveClass("rounded-xl", "border", "bg-muted/30");
     expect(dialog.querySelector("img")).toHaveAttribute(
       "src",
       expect.stringContaining("/uploads/patients/ama.jpg")
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Close patient photo" }));
-    expect(screen.queryByRole("dialog", { name: "Patient photo of Ama Mensah" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Ama Mensah" })).not.toBeInTheDocument();
+  });
+
+  it("shows the avatar when the patient has no photo", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      id: "patient-uuid",
+      firstName: "Ama",
+      lastName: "Mensah",
+    });
+    vi.mocked(apiRequest).mockResolvedValueOnce({ opdVisits: [], pagination: { total: 0, totalPages: 1 } });
+
+    const { container } = renderPatientDetail();
+
+    await screen.findByRole("heading", { level: 2, name: "Ama Mensah" });
+    expect(container.querySelector(".patient-avatar.h-24.w-24 svg")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View photo of Ama Mensah" })).not.toBeInTheDocument();
   });
 
   it("saves only editable patient fields as JSON and enables photo replacement", async () => {

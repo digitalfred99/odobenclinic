@@ -176,7 +176,7 @@ describe("PatientSearchList filters", () => {
     expect(await screen.findByText("OPD No. 12/2026 • Accra Metro • Odoben • Awendadze • P.O. Box 12")).toBeInTheDocument();
   });
 
-  it("shows the patient photo at the card corner on mobile and before the details on larger screens", async () => {
+  it("shows the avatar at the card corner on mobile and before the details on larger screens", async () => {
     vi.mocked(apiRequest).mockResolvedValueOnce({
       patients: [{
         id: "patient-1",
@@ -193,10 +193,8 @@ describe("PatientSearchList filters", () => {
     expect(card).toBeInTheDocument();
     const avatar = card?.querySelector(".absolute.right-4.top-4");
     expect(avatar).toHaveClass("sm:static");
-    expect(avatar?.querySelector("img")).toHaveAttribute(
-      "src",
-      expect.stringContaining("/uploads/patients/ama.jpg")
-    );
+    expect(avatar?.querySelector("img")).not.toBeInTheDocument();
+    expect(avatar?.querySelector("svg")).toBeInTheDocument();
     expect(avatar?.querySelector("span")).toHaveClass("h-14", "w-14");
   });
 
