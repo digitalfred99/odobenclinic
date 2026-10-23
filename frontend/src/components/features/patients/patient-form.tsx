@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Controller, useForm, useWatch, type FieldErrors, type Resolver } from "react-hook-form";
 import { Dialog } from "@base-ui/react/dialog";
@@ -23,6 +22,7 @@ import { calculateAge, toLocalInputDate } from "@/lib/dates";
 import { sanitizePhoneNumber } from "@/lib/phone";
 import { usePatientLocationCache } from "@/lib/patient-location-cache";
 import { preparePatientPhoto, resolvePatientPhotoUrl, validatePatientPhoto } from "@/lib/patient-photo";
+import { PatientPhotoImage } from "@/components/features/patients/patient-photo-image";
 import { PATIENT_RELIGIONS } from "@/types/patient";
 import {
   GHANA_REGIONS,
@@ -783,7 +783,7 @@ export function PatientForm({
           {photo ? (
             <div className="flex flex-wrap items-center gap-4">
               {photoPreviewUrl ? (
-                <Image src={photoPreviewUrl} alt="Selected patient photo" width={224} height={168} unoptimized className="aspect-[4/3] w-28 rounded-lg border border-border object-cover" />
+                <PatientPhotoImage src={photoPreviewUrl} alt="Selected patient photo" width={224} height={168} className="aspect-[4/3] w-28 rounded-lg border border-border object-cover" />
               ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="secondary" className="min-h-11" disabled={!cameraAvailable} onClick={() => setCameraOpen(true)}>
@@ -798,12 +798,11 @@ export function PatientForm({
           ) : (
             <div className="flex flex-wrap items-center gap-4">
               {existingPhotoUrl ? (
-                <Image
+                <PatientPhotoImage
                   src={resolvePatientPhotoUrl(existingPhotoUrl)}
                   alt="Current patient photo"
                   width={224}
                   height={168}
-                  unoptimized
                   className="aspect-[4/3] w-28 rounded-lg border border-border object-cover"
                 />
               ) : null}
