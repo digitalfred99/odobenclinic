@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ApiError } from "@/lib/api";
+import { ApiError, NetworkError } from "@/lib/api";
 import { shouldRetryQuery } from "./query-provider";
 
 describe("shouldRetryQuery", () => {
   it("retries transient network and server failures at most twice", () => {
     expect(shouldRetryQuery(0, new TypeError("Network request failed"))).toBe(true);
+    expect(shouldRetryQuery(0, new NetworkError())).toBe(true);
     expect(shouldRetryQuery(0, new ApiError("Database unavailable", 503))).toBe(true);
     expect(shouldRetryQuery(1, new ApiError("Database unavailable", 503))).toBe(true);
     expect(shouldRetryQuery(2, new ApiError("Database unavailable", 503))).toBe(false);

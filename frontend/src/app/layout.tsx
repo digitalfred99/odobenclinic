@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { NetworkStatusNotice } from "@/components/providers/network-status-notice";
 import { QueryProvider } from "@/components/providers/query-provider";
 import "./globals.css";
 
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className="h-full antialiased" data-scroll-behavior="smooth">
       <body className="min-h-full bg-background text-foreground">
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <NetworkStatusNotice />
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

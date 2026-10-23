@@ -2,14 +2,14 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { ApiError } from "@/lib/api";
+import { ApiError, NetworkError } from "@/lib/api";
 
 export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
   if (failureCount >= 2) return false;
   if (error instanceof ApiError) {
     return error.status === 408 || error.status === 429 || error.status >= 500;
   }
-  return error instanceof TypeError;
+  return error instanceof TypeError || error instanceof NetworkError;
 }
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {

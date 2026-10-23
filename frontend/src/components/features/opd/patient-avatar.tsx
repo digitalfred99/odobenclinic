@@ -9,22 +9,26 @@ import type { Patient } from "@/types/patient";
 export function PatientAvatar({
   patient,
   size,
+  showPhoto = true,
 }: {
   patient: Patient;
-  size: "small" | "medium" | "large";
+  size: "small" | "medium" | "large" | "profile";
+  showPhoto?: boolean;
 }) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const dimensions = size === "small"
     ? { container: "h-10 w-10", image: 40, icon: "h-5 w-5" }
     : size === "medium"
       ? { container: "h-11 w-11", image: 44, icon: "h-5 w-5" }
-      : { container: "h-14 w-14", image: 56, icon: "h-7 w-7" };
-  const hasPhoto = Boolean(patient.imageUrl) && failedImageUrl !== patient.imageUrl;
+      : size === "profile"
+        ? { container: "h-24 w-24", image: 96, icon: "h-12 w-12" }
+        : { container: "h-14 w-14", image: 56, icon: "h-7 w-7" };
+  const hasPhoto = showPhoto && Boolean(patient.imageUrl) && failedImageUrl !== patient.imageUrl;
 
   return (
     <span
       aria-hidden="true"
-      className={`relative flex ${dimensions.container} shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary`}
+      className={`patient-avatar relative flex ${dimensions.container} shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary`}
     >
       {patient.imageUrl && hasPhoto ? (
         <Image

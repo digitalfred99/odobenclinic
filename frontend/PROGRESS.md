@@ -401,3 +401,21 @@
 - Applied it to patient validation (including server field errors), login, user/profile validation, and password-change validation. Missing OPD patient selection scrolls back to the patient search field.
 - Added regression coverage for first-field ordering, reduced motion, explicit target scrolling, and the patient form's no-focus scroll behavior.
 - Validation: focused form suite (44 tests), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
+
+## Patient list and detail avatars
+- Patient search cards always show the profile avatar instead of patient photos; OPD patient selection continues to show photos.
+- Patient detail displays the patient photo when present and the profile avatar in its place when no photo is recorded.
+- Added regression tests for list avatar behavior and the no-photo patient detail state.
+- Validation: avatar, patient search, and patient detail tests (18), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
+
+## Patient photo preview modal polish
+- Redesigned the photo preview header to show a clear "Patient photo" label, the patient's name, and OPD No. when available.
+- Framed the image in a responsive, bordered container with contained scaling and mobile-aware modal dimensions.
+- Validation: patient detail tests (7), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
+
+## Connectivity failure feedback
+- Normalized fetch and interrupted response-body connection failures into a typed network error with clear retry guidance; request aborts and API validation/server errors remain distinct.
+- Added an app-wide, dismissible notice for offline state, failed connectivity, and restored connection; network errors remain eligible for the existing bounded query retries.
+- Kept mutations from auto-retrying to avoid duplicate writes; users are prompted to retry the failed action after reconnecting.
+- Added tests for connection errors/events, offline/online notices, cancellation handling, and bounded query retry.
+- Validation: network tests (7), full frontend lint, TypeScript check, production build, and `git diff --check -- frontend` pass.
